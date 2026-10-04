@@ -88,6 +88,8 @@ public final class ConsoleService extends Service implements SensorEventListener
     public boolean canReadLogs(){return checkSelfPermission("android.permission.READ_LOGS")==android.content.pm.PackageManager.PERMISSION_GRANTED;}
     /** The console or its video overlay is on screen, so CardioLab may own the treadmill link. */
     public void consoleVisible(boolean value){consoleVisible=value;claimLink();}
+    /** Debug builds only, for the supervised link-loss test. */
+    public void pauseHeartbeat(long ms){if((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0)link.pauseHeartbeat(ms);}
     private void claimLink(){link.want(canReadLogs()&&(consoleVisible||overlay!=null));}
     private void treadmillBytes(byte[] data,int count){
         TreadmillState.Phase before=treadmill.phase;

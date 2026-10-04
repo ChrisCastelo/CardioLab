@@ -51,6 +51,7 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
     @Override public void changed(){if(!visible||ui==null||service==null)return;ui.refresh();String note=service.treadmillLive()&&!service.message.startsWith("Use the treadmill")?"Treadmill link: heartbeats only · CardioLab sends no motion commands":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
     private void open(String action){if(service==null)return;switch(action){
         case "home":break;
+        case "pauseHeartbeat":service.pauseHeartbeat(15000);break;
         case "track":track=!track;build();break;
         case "expandTrack":track=true;build();break;
         case "sensors":settings();break;

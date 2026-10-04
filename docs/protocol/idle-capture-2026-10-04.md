@@ -132,8 +132,12 @@ Findings:
   on screen: A0 heartbeat once a second, verbatim echoes of D0/D3, nothing else. It opens
   the port only after FitOS's last `SNT` log line is 3 s old, and releases it if FitOS
   transmits again. A supervised walk at 0.5 mph showed live state, speed and time.
-- Unknown and required before any motion command: what the controller does when the
-  heartbeat stops while the belt is moving.
+- Link-loss test (15:53, supervised, belt running at 0.5 mph): CardioLab withheld the
+  heartbeat from 15:53:21 to 15:53:36 while keeping the port open. The controller sent
+  nothing at all during the gap, and the user reported the belt stopped. When heartbeats
+  resumed, D1 was all zeros: the workout had ended, not paused. The exact delay before
+  the belt stopped was not measured. The controller therefore fails safe on heartbeat
+  loss, but CardioLab must not rely on that alone.
 
 ## Next justified test
 

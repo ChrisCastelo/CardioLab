@@ -1,6 +1,7 @@
 package com.cardio.lab;
 
 import android.os.*;
+import android.util.Log;
 import java.io.*;
 import java.util.*;
 
@@ -27,6 +28,7 @@ final class TreadmillLink {
     private Thread reader,stockLog;
     private java.lang.Process logcat;
     private int counter;
+    private volatile long heartbeatPausedUntil;
     String status="Treadmill link idle";
 
     TreadmillLink(Listener listener,Handler main){
@@ -36,6 +38,8 @@ final class TreadmillLink {
     /** CardioLab is on screen (activity or video overlay) and may own the link. */
     void want(boolean value){link.post(()->{if(value&&!wanted)wantedAt=SystemClock.elapsedRealtime();wanted=value;});}
     boolean open(){return out!=null;}
+    /** Debug builds only: withhold heartbeats to observe the controller's link-loss behaviour. */
+    void pauseHeartbeat(long ms){heartbeatPausedUntil=SystemClock.elapsedRealtime()+ms;Log.w("TreadmillLink","heartbeat paused for "+ms+" ms");}
     void echo(List<byte[]> frames){if(!frames.isEmpty())link.post(()->{for(byte[] f:frames)write(f);});}
     void close(){closing=true;link.post(()->{release("Treadmill link closed");thread.quitSafely();});if(logcat!=null)logcat.destroy();}
 
@@ -45,7 +49,7 @@ final class TreadmillLink {
         else if(out!=null&&!wanted)release("Treadmill link released");
         else if(out==null&&wanted&&!stockQuiet)report("Waiting for the stock app to release the treadmill");
         else if(out==null&&wanted&&now-wantedAt>=1000)acquire();
-        if(out!=null){counter=(counter+1)&255;write(TreadmillState.heartbeat(counter));}
+        if(out!=null&&now>=heartbeatPausedUntil){counter=(counter+1)&255;write(TreadmillState.heartbeat(counter));}
         if(!closing)link.postDelayed(this,1000);
     }};
     private void acquire(){
@@ -54,17 +58,18 @@ final class TreadmillLink {
         }catch(IOException|InterruptedException ignored){}
         try{
             FileInputStream input=new FileInputStream(PORT);out=new FileOutputStream(PORT);in=input;
-            reader=new Thread(()->{byte[] b=new byte[256];try{for(int n;(n=input.read(b))>=0;)if(n>0){byte[] copy=Arrays.copyOf(b,n);main.post(()->listener.received(copy,copy.length));}}catch(IOException ignored){}},"treadmill-read");
+            reader=new Thread(()->{byte[] b=new byte[256];try{for(int n;(n=input.read(b))>=0;)if(n>0){byte[] copy=Arrays.copyOf(b,n);Log.i("TreadmillLink","RCV "+hex(copy));main.post(()->listener.received(copy,copy.length));}}catch(IOException ignored){}},"treadmill-read");
             reader.setDaemon(true);reader.start();report("Treadmill link open");
         }catch(IOException e){release("Treadmill port unavailable: "+e.getMessage());}
     }
-    private void write(byte[] frame){if(out==null)return;try{out.write(frame);out.flush();}catch(IOException e){release("Treadmill write failed: "+e.getMessage());}}
+    private void write(byte[] frame){if(out==null)return;try{out.write(frame);out.flush();Log.i("TreadmillLink","SNT "+hex(frame));}catch(IOException e){release("Treadmill write failed: "+e.getMessage());}}
     private void release(String why){
         try{if(out!=null)out.close();}catch(IOException ignored){}
         try{if(in!=null)in.close();}catch(IOException ignored){}
         out=null;in=null;reader=null;report(why);
     }
-    private void report(String value){if(value.equals(status))return;status=value;main.post(()->listener.changed(value));}
+    private static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte x:b)s.append(String.format(Locale.US,"%02X",x&255));return s.toString();}
+    private void report(String value){if(!value.equals(status))Log.i("TreadmillLink",value);if(value.equals(status))return;status=value;main.post(()->listener.changed(value));}
     /** Any stock transmission (SNT) means the stock app owns the port; never write at the same time. */
     private void followStockLog(){
         stockLog=new Thread(()->{
