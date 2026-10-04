@@ -56,10 +56,28 @@ A3 was queried a second time at 08.865 with an identical reply.
 - D1 scaling for elapsed time, distance, calories and HR is still unconfirmed because
   every field is zero at idle.
 
+## Safety-key test (15:16–15:17, belt stopped)
+
+The user pulled and then reinserted the safety key while the live capture ran
+(`artifacts/treadmill-safetykey-20261004-151639/`, local only). All frames passed
+their checksums.
+
+| Time | Dir | Frame | Decoded | FitOS state log |
+| --- | --- | --- | --- | --- |
+| 15:16:35.551 | rx | `F0D001AA6B` | D0 state `AA` = safety key not plugged | `SafeKeyNotPlugged` |
+| 15:16:35.553 | tx | `F0D001AA6B` | FitOS echoes the D0 frame back | |
+| 15:17:32.436 | rx | `F0D00100C1` | D0 state `00` = stop | `Stop` |
+| 15:17:32.437 | tx | `F0D00100C1` | FitOS echoes the D0 frame back | |
+
+- D0 is event-driven: one frame per change, nothing repeated while the key stays out.
+- The stock app acknowledges each D0 by echoing it within about 2 ms. A CardioLab
+  transport should do the same until shown otherwise.
+- Heartbeats and zeroed D1 status continued at 1 Hz with the key out, so the link stays
+  up and key removal is reported rather than silently dropping communication.
+- Reinserting the key returns the controller to `stop`, not to any previous state.
+
 ## Next justified test
 
-A no-motion safety-key test: with the user present and the belt stopped, remove and
-reinsert the safety key while recording the same live capture. This should produce D0
-state frames without any risk of belt movement. After that, the supervised Start/Stop
-stage (user at the console, ready on the physical Stop) to observe D0/D3/D4 and
-non-zero D1 fields at the lowest speed.
+The supervised Start/Stop stage: the user stands at the console, ready on the physical
+Stop and safety key, and starts the belt from the stock app at its lowest speed. This
+should show the D0 state transitions, D3 speed, D4 key events and non-zero D1 fields.
