@@ -17,6 +17,13 @@ public final class ConsoleSessionTest {
         for(double speed:new double[]{1,13,Double.NaN,Double.POSITIVE_INFINITY})try{s.setSpeed(speed);throw new AssertionError("Invalid speed accepted");}catch(IllegalArgumentException expected){}
         s.end();try{s.configure("time",2,6,0,20);throw new AssertionError("Zero duration accepted");}catch(IllegalArgumentException expected){}
         s.quick();s.setSpeed(12);s.advance(400/(12*.44704)+.001);check(s.laps()==1,"400m lap");
-        System.out.println("Console session tests passed: disconnected gate, active time, timed/distance/manual intervals, bounds, lap count");
+        ConsoleSession live=new ConsoleSession();live.configure("time",2,4,30,20);live.begin();check(live.speed==2&&live.phase==0,"live intervals begin at A");
+        live.running=true;check(!live.measured(29,10),"A continues before its limit");check(live.measured(1,1)&&live.phase==1&&live.speed==4,"A switches to B on measured time");
+        check(live.measured(20,30)&&live.phase==0,"B switches back to A");near(live.elapsed,50);
+        live.running=false;check(!live.measured(100,100)&&live.phaseElapsed==0,"paused telemetry does not advance");
+        ConsoleSession dist=new ConsoleSession();dist.configure("distance",2,5,100,50);dist.begin();dist.running=true;check(dist.measured(10,100)&&dist.speed==5,"distance intervals use measured meters");
+        ConsoleSession manual=new ConsoleSession();manual.configure("manual",2,5,10,10);manual.begin();manual.running=true;check(!manual.measured(999,999)&&manual.phase==0,"manual never auto switches");
+        check(!live.measured(Double.NaN,1)&&!live.measured(-1,1),"invalid telemetry ignored");
+        System.out.println("Console session tests passed: disconnected gate, active time, timed/distance/manual intervals, bounds, lap count, live measured intervals");
     }
 }

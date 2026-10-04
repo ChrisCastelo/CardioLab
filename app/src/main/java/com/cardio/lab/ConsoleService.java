@@ -75,6 +75,7 @@ public final class ConsoleService extends Service implements SensorEventListener
         if(action.equals("end")){session.end();session.intervals=false;save();notifyUi();return;}
         if(!session.preview){message="Connect and verify the treadmill before enabling real controls";notifyUi();return;}
         switch(action){
+            case "intervals":
             case "main": if(session.running)session.pause();else{if(!session.started)detector.reset();session.start();detector.resetSignal();}break;
             case "switch":if(session.running&&session.intervals)session.switchPhase();break;
             default:return;
@@ -84,16 +85,18 @@ public final class ConsoleService extends Service implements SensorEventListener
     public void speed(double value){advance();if(treadmillLive()){command(now->treadmill.setSpeed(value,now),String.format(Locale.US,"%.1f mph",value));return;}if(session.preview)session.setSpeed(value);save();notifyUi();}
     public void incline(int value){if(treadmillLive()){command(now->treadmill.setIncline(value,now),"incline "+value);return;}if(session.preview)session.setIncline(value);save();notifyUi();}
     /** Quick start runs at 2 mph; resuming restores the speed held before the pause (the controller restarts at 0.5). */
-    private double speedAfterStart;
+    private double speedAfterStart,queuedSpeed,lastElapsed,lastMeters;
     private String commandLabel="";
     private void treadmillAction(String action){
         TreadmillState.Phase p=treadmill.phase;
         if(action.equals("main")){
             if(p==TreadmillState.Phase.RUNNING){speedAfterStart=treadmill.speedMph();command(now->treadmill.setState(2,now),"pause");}
             else if(p==TreadmillState.Phase.PAUSED){if(speedAfterStart<2)speedAfterStart=2;command(now->treadmill.setState(1,now),"resume");}
-            else if(p==TreadmillState.Phase.STOPPED||p==TreadmillState.Phase.UNKNOWN){speedAfterStart=2;command(now->treadmill.setState(1,now),"start");}
+            else if(p==TreadmillState.Phase.STOPPED||p==TreadmillState.Phase.UNKNOWN){session.intervals=false;speedAfterStart=2;command(now->treadmill.setState(1,now),"start");}
             else{message="Treadmill is "+treadmill.label().toLowerCase(Locale.US)+" · wait or use its own buttons";notifyUi();}
-        }else if(action.equals("end"))command(now->treadmill.setState(0,now),"end");
+        }else if(action.equals("intervals")&&(p==TreadmillState.Phase.STOPPED||p==TreadmillState.Phase.UNKNOWN)&&session.intervals){speedAfterStart=session.speedA;command(now->treadmill.setState(1,now),"start intervals");}
+        else if(action.equals("switch")&&session.intervals&&p==TreadmillState.Phase.RUNNING){session.switchPhase();queuedSpeed=session.speed;}
+        else if(action.equals("end"))command(now->treadmill.setState(0,now),"end");
     }
     private interface Command {byte[] build(long now);}
     /** Builds the frame only once no earlier command is awaiting confirmation (building marks it pending). */
@@ -115,15 +118,25 @@ public final class ConsoleService extends Service implements SensorEventListener
     private void treadmillBytes(byte[] data,int count){
         TreadmillState.Phase before=treadmill.phase;
         link.echo(treadmill.bytes(data,count,SystemClock.elapsedRealtime()));
-        if(treadmill.phase==TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.PAUSED)detector.reset();
+        boolean started=treadmill.phase==TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.PAUSED;
+        boolean ended=treadmill.phase==TreadmillState.Phase.STOPPED&&(before==TreadmillState.Phase.RUNNING||before==TreadmillState.Phase.PAUSED||before==TreadmillState.Phase.COUNTDOWN);
+        if(started){detector.reset();session.begin();lastElapsed=0;lastMeters=0;}
+        // Time and distance return to zero when the controller ends a workout; steps and intervals follow.
+        if(ended){detector.reset();session.end();session.intervals=false;queuedSpeed=0;}
+        session.running=treadmill.phase==TreadmillState.Phase.RUNNING;
+        if(session.running&&(treadmill.elapsed!=lastElapsed||treadmill.meters()!=lastMeters)){
+            if(session.measured(Math.max(0,treadmill.elapsed-lastElapsed),Math.max(0,treadmill.meters()-lastMeters)))queuedSpeed=session.speed;
+        }
+        lastElapsed=treadmill.elapsed;lastMeters=treadmill.meters();
         if(treadmill.phase==TreadmillState.Phase.RUNNING&&before!=TreadmillState.Phase.RUNNING&&speedAfterStart>0){double target=speedAfterStart;speedAfterStart=0;command(now->treadmill.setSpeed(target,now),String.format(Locale.US,"%.1f mph",target));}
         // The controller answers B0 with its current state before the new one, so a stop seen while a command is pending is not a cancellation.
         else if(treadmill.pendingKind==null&&treadmill.phase==TreadmillState.Phase.STOPPED||treadmill.phase==TreadmillState.Phase.SAFETY_KEY_OUT||treadmill.phase==TreadmillState.Phase.EMERGENCY_STOP)speedAfterStart=0;
         if(treadmill.phase!=before)notifyUi();
     }
     public String treadmillStatus(){return treadmillLive()?"Live from treadmill · "+treadmill.label():!canReadLogs()?"Grant READ_LOGS over adb so CardioLab can hand off from the stock app":link.status;}
-    private void advance(){long now=SystemClock.elapsedRealtime();session.advance((now-lastTick)/1000.0);lastTick=now;}
-    private final Runnable tick=new Runnable(){public void run(){advance();if(treadmill.confirmFailed(SystemClock.elapsedRealtime())){treadmill.pendingKind=null;speedAfterStart=0;message="The treadmill did not confirm "+commandLabel+" · the screen shows what the treadmill reports";}else if(treadmillLive()&&treadmill.pendingKind==null&&message.startsWith("Sent "))message="Treadmill confirmed "+commandLabel;if(SystemClock.elapsedRealtime()-lastSave>1000)save();notifyUi();main.postDelayed(this,200);}};
+    private void advance(){long now=SystemClock.elapsedRealtime();if(!treadmillLive())session.advance((now-lastTick)/1000.0);lastTick=now;}
+    private final Runnable tick=new Runnable(){public void run(){advance();if(treadmill.confirmFailed(SystemClock.elapsedRealtime())){treadmill.pendingKind=null;speedAfterStart=0;message="The treadmill did not confirm "+commandLabel+" · the screen shows what the treadmill reports";}else if(treadmillLive()&&treadmill.pendingKind==null&&message.startsWith("Sent "))message="Treadmill confirmed "+commandLabel;
+            if(queuedSpeed>0&&treadmill.phase==TreadmillState.Phase.RUNNING&&!treadmill.confirmPending(SystemClock.elapsedRealtime())){double target=queuedSpeed;queuedSpeed=0;command(now->treadmill.setSpeed(target,now),String.format(Locale.US,"interval %.1f mph",target));}if(SystemClock.elapsedRealtime()-lastSave>1000)save();notifyUi();main.postDelayed(this,200);}};
     private void save(){
         lastSave=SystemClock.elapsedRealtime();ConsoleSession s=session;
         getSharedPreferences("console",MODE_PRIVATE).edit().putBoolean("preview",s.preview).putBoolean("started",s.started).putBoolean("intervals",s.intervals)

@@ -1,6 +1,6 @@
 package com.cardio.lab;
 
-/** Console preview model. No transport, serial port, or treadmill command is reachable here. */
+/** Console session and interval model, simulated in preview or driven by treadmill telemetry. No transport is reachable here. */
 public final class ConsoleSession {
     public boolean preview, running, started, intervals;
     public double speed=2, meters, elapsed, phaseElapsed, phaseMeters;
@@ -40,5 +40,15 @@ public final class ConsoleSession {
             if(intervals&&!mode.equals("manual")&&((mode.equals("time")?phaseElapsed:phaseMeters)>=(phase==0?limitA:limitB)-1e-7))switchPhase();
         }
     }
+    /** Live treadmill intervals: advances by the controller's measured time and distance; true when the phase switched. */
+    public boolean measured(double seconds,double metersMoved){
+        if(!intervals||!running||!Double.isFinite(seconds)||!Double.isFinite(metersMoved)||seconds<0||metersMoved<0)return false;
+        elapsed+=seconds;meters+=metersMoved;phaseElapsed+=seconds;phaseMeters+=metersMoved;
+        if(mode.equals("manual"))return false;
+        if((mode.equals("time")?phaseElapsed:phaseMeters)<(phase==0?limitA:limitB)-1e-7)return false;
+        switchPhase();return true;
+    }
+    /** A treadmill workout began (countdown from stop): intervals restart at phase A. */
+    public void begin(){elapsed=meters=phaseElapsed=phaseMeters=0;phase=0;speed=intervals?speedA:2;started=true;running=false;}
     public int laps(){return (int)(meters/400);}
 }
