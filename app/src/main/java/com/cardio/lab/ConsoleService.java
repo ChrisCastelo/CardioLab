@@ -147,7 +147,7 @@ public final class ConsoleService extends Service implements SensorEventListener
     private void restore(){
         SharedPreferences p=getSharedPreferences("console",MODE_PRIVATE);ConsoleSession s=session;
         s.preview=p.getBoolean("preview",false);s.started=p.getBoolean("started",false)&&s.preview;s.intervals=p.getBoolean("intervals",false);
-        s.speed=p.getFloat("speed",2);s.incline=p.getInt("incline",0);s.elapsed=p.getFloat("elapsed",0);s.meters=p.getFloat("meters",0);detector.restoreSteps(p.getInt("steps",0));
+        s.speed=p.getFloat("speed",2);s.incline=p.getInt("incline",0);s.elapsed=p.getFloat("elapsed",0);s.meters=p.getFloat("meters",0);detector.restoreSteps(s.started?p.getInt("steps",0):0);
         s.mode=p.getString("mode","time");s.speedA=p.getFloat("a",2);s.speedB=p.getFloat("b",6);s.limitA=p.getFloat("la",60);s.limitB=p.getFloat("lb",60);
         s.phase=p.getInt("phase",0);s.phaseElapsed=p.getFloat("pe",0);s.phaseMeters=p.getFloat("pm",0);
         if(s.preview)message="PREVIEW · simulated speed/distance · real steps and HR";
