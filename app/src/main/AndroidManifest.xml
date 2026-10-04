@@ -1,10 +1,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <queries><intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent></queries>
     <application android:label="Cardio Lab" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@drawable/ic_launcher">
-        <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize">
+        <service android:name=".ConsoleService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Continuous mounted accelerometer vibration step detection and BLE heart-rate acquisition while workout controls overlay a video app" />
+        </service>
+        <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize" />
+        <activity android:name=".VideoActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize" />
+        <activity android:name=".ConsoleActivity" android:exported="true" android:launchMode="singleTask" android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
     </application>

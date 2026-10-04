@@ -1,0 +1,190 @@
+ECHELON SCREEN / TREADMILL COMMUNICATION — 2026-10-04
+
+Repository archive note: this report was copied from artifacts/echelon-protocol.
+Relative backup/capture paths below refer to that original local directory.
+The maintained offline decoder and tests are now in tools/protocol/.
+The user subsequently confirmed the original DB9 is the treadmill connection;
+its pinout and electrical levels remain unverified. See docs/TREADMILL-HANDOFF.md.
+
+Scope and evidence
+------------------
+Screen: ECHTES-215-S, Android 9, Rockchip RK3288, serial 545C101585.
+APK sources: preserved device backups in ../echelon-backup-20261004-132417.
+FitOS 1.65.5 and Echelon 2.7.0.8-mounted were decompiled locally with JADX 1.5.6.
+Analysis inspected saved app code and Android logs. No custom program opened
+/dev/ttyS3. No control packet, probe, or motion command was sent by this work.
+Any SNT packets described below were sent by the already-running stock app.
+
+Finding: the screen is a bidirectional controller, not just a video display.
+Both stock apps contain the same ChangYow/Santo-style serial communication
+stack. The tablet sends requests; the treadmill controller returns telemetry
+and state events. The code also supports Bluetooth and other equipment, so
+presence of a handler alone does not prove this particular treadmill supports it.
+
+CONFIRMED IN DEVICE LOGS
+-----------------------
+FitOS opens /dev/ttyS3. Log configuration: 9600,1,8,0,0,0.
+SerialPortHelper maps these to baud, stop bits, data bits, parity, flow control,
+flags: 9600 baud, 8 data bits, parity 0, 1 stop bit, flow control 0 (8N1).
+The OEM Echelon app independently selects /dev/ttyS3 at 9600 baud.
+
+recent-logcat.txt lines 3901-3935 show eight stock-app heartbeat transmissions:
+13:23:25.967 through 13:23:29.470, counters 1 through 8, about 500 ms apart.
+First: F0 A0 01 01 92. Last: F0 A0 01 08 99.
+SND and SNT are two logs of the same operation, not separate messages.
+SerialCommManager also prints sign-extended hex; use SearialPortManager SNT.
+No SearialPortManager RCV frame appears in either saved log capture.
+This proves a software write attempt, not electrical delivery or a working
+treadmill connection. The detached screen cannot establish controller support.
+
+The rear DB9 is the likely physical route, based on the DC+DB9 treadmill cable
+described in the project handoff. Mapping ttyS3 to DB9 pins, signal voltage,
+RS-232 versus TTL levels, and grounding are NOT established by app code.
+The PC's USB/OTG connection is the Android maintenance/ADB connection.
+
+INPUTS TO THE TABLET FOUND IN THE TREADMILL CODE
+----------------------------------------------
+1. Workout state: stopped, started/running, paused, confirmation, emergency
+   stop, and safety key not plugged in.
+2. Reported speed and incline level, including asynchronous change notices.
+   A speed report is not proof of an independent measured belt-speed sensor.
+   Incline is an encoded level; do not equate it directly with percent grade.
+3. Workout telemetry: elapsed-time field, cumulative distance, calories and
+   heart-rate field. Heart-rate availability and physical sensor source have
+   not been established. A zero/missing value may be normal without a sensor.
+4. Controller model ID, hardware version, firmware version, and unit setting.
+5. Controller-advertised min/max speed, min/max incline and countdown duration.
+   Read these from the real controller before designing any control UI; app
+   defaults do not establish the actual treadmill's limits.
+6. Physical key events: key code plus value. FitOS explicitly maps code 51
+   to volume up and 52 to volume down; other keys remain unmapped here.
+7. Optional/library-supported fan status, user-presence and machine-lock
+   events. Support on this Stride-8s is not verified.
+8. Error-log response exists; individual error meanings are not mapped here.
+
+OUTPUTS FROM THE TABLET FOUND IN CODE
+-----------------------------------
+1. Request start, stop, or pause.
+2. Set requested belt speed and incline level; stock code clamps these against
+   configured/advertised limits before encoding.
+3. Query identification, limits, speed, incline, workout state, and error log.
+4. Periodic heartbeat/acknowledgment; some received events are echoed back.
+5. Fan level, machine-unit setting, time sync and factory/service functions
+   also exist in the library. These are capabilities in code, not confirmation
+   that this treadmill implements or uses them. No such functions were invoked.
+
+Some on-screen metrics are derived on the tablet. In FitOS's treadmill callback,
+watts and displayed calories are calculated from speed, incline, user weight,
+and accumulated workout data, even though the received packet includes a
+calorie field. Do not assume every displayed number is a separate sensor input.
+
+REGULAR PACKET FORMAT (STATIC CODE + HEARTBEAT CAPTURE)
+------------------------------------------------------
+F0 | opcode (1 byte) | payload length (1 byte) | payload | checksum (1 byte)
+Total length = payload length + 4.
+Checksum = sum of every preceding byte modulo 256.
+Multi-byte numeric fields use big-endian byte order.
+Example observed F0 A0 01 01 92: heartbeat, 1-byte payload, counter 1;
+(F0 + A0 + 01 + 01) & FF = 92.
+The library has an exceptional fixed-eight-byte E0 factory frame; not decoded.
+
+Command IDs (hex); the same query ID is used for the reply:
+A0 heartbeat, incrementing 1-byte counter
+A1 device information (query/reply)
+A2 error log (query/reply)
+A3 limits (query/reply)
+A4 workout control state (query/reply)
+A5 incline (query/reply)
+A6 speed (query/reply)
+A7 fan maximum level (query/reply; optional)
+A8 fan current level (query/reply; optional)
+B0 set workout state: 00 stop, 01 start, 02 pause
+B1 set incline: 1 byte
+B2 set speed: 2 bytes, big-endian, scaled by 1000 in controller units;
+   stock encoder adds 5 to the scaled integer. Preserve this quirk in analysis.
+B3 set fan level (optional)
+B4 set machine units (optional)
+D0 workout state notification
+D1 workout telemetry notification
+D2 incline-change notification
+D3 speed-change notification
+D4 physical-key notification
+D5 user-presence notification (optional)
+D6 lock-state notification (optional)
+
+Incoming D0 state values:
+00 stop, 01 start, 02 pause, 0A confirm, AA safety key absent, EA emergency stop.
+These are decoded meanings from the stock UI, not measured machine behavior.
+
+Payload layouts; offsets below start at payload byte 0, after F0/opcode/length:
+A1: [0] model ID; [1:3] hardware major/minor; [3:6] firmware three components;
+    [6] protocol unit. Stock code treats 0 as metric, nonzero as imperial.
+A3: [0] max incline; [1] min incline signed; [2:4] max speed /1000;
+    [4:6] min speed /1000; [6] countdown.
+D1: [0:2] elapsed time; [2:6] distance /1000; [6:8] reported calories;
+    [8] reported heart rate.
+D2/A5: [0] signed incline level.
+D3/A6: [0:2] speed /1000, then convert imperial to km/h if needed. Stock code
+       additionally adds 0.001 after conversion.
+D4: [0] key code; [1] key value.
+D5: [0] 0 unknown, 1 no user, 2 user present.
+D6: [0] 1 unlocked, 2 locked.
+Do not infer units without A1 or controller-specific evidence.
+
+READ-ONLY DECODER
+-----------------
+decode_capture.py reads a saved threadtime log and emits JSON lines.
+It contains no device, network or serial I/O, and cannot send commands.
+It takes SearialPortManager SNT/RCV records, checks lengths and checksums,
+handles split/combined chunks per process/direction, and retains unknown IDs.
+Unit state begins unknown. Model-specific formats and the E0 factory payload
+remain unsupported; an incomplete tail or corrupt frame is reported.
+Logcat itself may omit messages; absence in a capture is not proof no bytes
+ever arrived electrically. A truncated frame with a plausible large length
+can delay decoding until enough bytes arrive; this is not a general UART sniffer.
+
+Example (local files only):
+  python decode_capture.py recent-logcat.txt
+Validation: test_decode_capture.py checks an actual captured heartbeat and
+synthetic tests for fragmentation, paired frames, checksum recovery, telemetry
+layout, signed incline, unknown units and separate receive/transmit buffers.
+decoded-heartbeats.jsonl contains the eight verified real heartbeat records.
+
+NEXT PHYSICAL VALIDATION
+------------------------
+When the original treadmill controller is available, reconnect only its normal
+factory harness with power off. With the belt unoccupied, observe the stock app
+and collect its existing logs while idle. First confirm A1, A3 and idle/safety
+state replies. No custom control program should share the UART with the stock
+app: a second reader can steal bytes. If existing logs do not expose received
+packets, stop and plan instrumentation rather than reading the live device node.
+Actual motion tests, electrical probing, pinout testing and motor control are
+separate future stages, not performed or validated by this analysis.
+
+SOURCE LOCATOR (relative to this folder)
+----------------------------------------
+fitos/sources/com/changyow/serial_comm/SerialCommManager.java: UART selection.
+fitos/sources/me/f1reking/serialportlib/SerialPortHelper.java: serial parameters.
+fitos/sources/changyow/santoble/uart/SerialPortManager.java: UART dispatch,
+  heartbeat, input handler registration and speed/incline output methods.
+fitos/sources/changyow/santoble/handler/Command.java: framing and byte order.
+fitos/sources/k/c.java: p0 checksum creation and F3 validation.
+fitos/sources/changyow/santoble/handler/treadmill/: treadmill packet handlers.
+  o.java=D1; h.java=D2; i.java=D3; k.java=D4; l.java=D5; f.java=A3;
+  j.java variants=A1/A6; TRWorkoutControlStateNotify.java=D0.
+fitos/sources/changyow/santoble/handler/SetWorkoutControlStateCmd.java: B0.
+fitos/sources/com/ucare/fitos/util/EquipmentConnectionUtil.java:
+  t0 state meanings; v3 key meanings; w3 telemetry and derived watts/calories.
+fitos/sources/changyow/santoble/Workout.java: units and limit clamping.
+echelon/sources/f7/j.java: same ttyS3 at 9600 and serial protocol manager.
+echelon/sources/t6/b.java: same framing; e7/b0.java=D1 telemetry;
+  e7/n.java=B2 speed; e7/l.java=B1 incline; e7/a0.java=D0 state.
+
+Decompiler limitations: obfuscation and decompiler errors exist. FitOS JADX
+reported 265 errors across the complete app; specific clear handler methods
+were inspected and core framing/telemetry corroborated against the other app.
+The full Echelon decompilation was stopped after remaining at 10,478 of 10,479
+classes; all cited Echelon classes had already been written and inspected.
+Generated Java is analysis output, not a rebuildable or complete source release.
+No full firmware recovery image, controller firmware dump, DB9 pinout or live
+inbound treadmill telemetry was obtained in this stage.

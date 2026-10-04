@@ -1,0 +1,309 @@
+<div id="cardiolab-console" aria-label="CardioLab treadmill interface prototype">
+  <style>
+    #cardiolab-console{--cl-bg:light-dark(#edf0ed,#101510);--cl-panel:light-dark(#ffffff,#1d241e);--cl-soft:light-dark(#eef1ec,#2a332b);--cl-ink:light-dark(#17251c,#f1f5ed);--cl-muted:light-dark(#56645b,#a8b5a9);--cl-line:light-dark(#d8e0d6,#39463b);--cl-accent:light-dark(#264c31,#d5f59b);--cl-on:light-dark(#ffffff,#1c2c16);--cl-red:light-dark(#a83830,#ff9d8f);--cl-sky:light-dark(#bed9d6,#314c50);font:14px/1.4 system-ui,sans-serif;color:var(--cl-ink);width:100%;color-scheme:inherit}
+    #cardiolab-console *{box-sizing:border-box}#cardiolab-console [hidden]{display:none!important}
+    #cardiolab-console button,#cardiolab-console input,#cardiolab-console select{font:inherit}
+    #cardiolab-console button{color:inherit;background:var(--cl-soft);border:1px solid transparent;border-radius:12px;min-height:44px;padding:10px 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;touch-action:manipulation}
+    #cardiolab-console button:hover{filter:brightness(.96)}#cardiolab-console button:disabled{opacity:.4}
+    #cardiolab-console button:focus-visible,#cardiolab-console input:focus-visible,#cardiolab-console select:focus-visible{outline:3px solid var(--cl-accent);outline-offset:3px}
+    #cardiolab-console button.cl-primary,#cardiolab-console button[aria-pressed=true]{background:var(--cl-accent);color:var(--cl-on)}
+    #cardiolab-console button.cl-plain{background:transparent;border-color:var(--cl-line)}
+    #cardiolab-console button.cl-stop{color:var(--cl-red);background:var(--cl-soft)}
+    #cardiolab-console h2,#cardiolab-console h3,#cardiolab-console p{margin:0}#cardiolab-console h2{font-size:26px;letter-spacing:-1px;font-weight:500}#cardiolab-console h3{font-size:18px;font-weight:500}
+    #cardiolab-console .cl-shell{background:var(--cl-bg);border-radius:22px;overflow:hidden;border:1px solid var(--cl-line)}
+    #cardiolab-console .cl-header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--cl-panel)}
+    #cardiolab-console .cl-brand{display:flex;align-items:center;gap:10px;font-weight:500;letter-spacing:-.5px;font-size:21px}
+    #cardiolab-console .cl-brandmark{background:var(--cl-accent);color:var(--cl-on);border-radius:11px;display:grid;place-items:center;width:36px;height:36px}
+    #cardiolab-console .cl-sub{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--cl-muted);font-weight:500}
+    #cardiolab-console .cl-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    #cardiolab-console .cl-demo{font-size:11px;letter-spacing:.8px;color:var(--cl-muted);padding:6px 9px;border:1px solid var(--cl-line);border-radius:7px}
+    #cardiolab-console .cl-stage{position:relative;isolation:isolate;display:grid;grid-template-columns:116px minmax(0,1fr) 116px;gap:14px;padding:18px;min-height:448px}
+    #cardiolab-console .cl-landscape{position:absolute;inset:0;z-index:-1;overflow:hidden;background:linear-gradient(180deg,var(--cl-sky),light-dark(#e1e6ce,#697663));transition:opacity .25s}
+    #cardiolab-console .cl-sun{position:absolute;top:12%;left:61%;width:74px;height:74px;border-radius:50%;background:light-dark(#f7ecc7,#d6ccaa);opacity:.75}
+    #cardiolab-console .cl-mountain{position:absolute;inset:8% -4% -5%;background:light-dark(#86a79a,#344d42);clip-path:polygon(0 58%,17% 26%,29% 48%,48% 7%,70% 57%,83% 31%,100% 53%,100% 100%,0 100%)}
+    #cardiolab-console .cl-mountain.front{inset:35% -10% -20%;background:light-dark(#507568,#1e3830);clip-path:polygon(0 52%,18% 26%,40% 62%,69% 13%,100% 57%,100% 100%,0 100%)}
+    #cardiolab-console .cl-road{position:absolute;bottom:-10%;left:32%;width:46%;height:53%;background:light-dark(#d4ccb5,#92967a);clip-path:polygon(46% 0,49% 0,43% 30%,54% 54%,85% 100%,0 100%,33% 53%,34% 31%);opacity:.8}
+    #cardiolab-console .cl-rail{background:var(--cl-panel);padding:12px;border-radius:16px;display:flex;flex-direction:column;gap:9px;align-self:stretch;min-width:0}
+    #cardiolab-console .cl-railhead{display:flex;justify-content:space-between;gap:4px;align-items:center}
+    #cardiolab-console .cl-railhead span{font-size:11px;color:var(--cl-muted)}
+    #cardiolab-console .cl-railhead strong{font-weight:500;font-size:13px}
+    #cardiolab-console .cl-railvalue{font-size:29px;line-height:1.1;font-weight:500;font-variant-numeric:tabular-nums}
+    #cardiolab-console .cl-presets{display:grid;grid-template-columns:1fr;gap:5px;flex:1}
+    #cardiolab-console .cl-presets button{padding:5px;font-size:17px;min-height:40px;border-radius:8px;font-variant-numeric:tabular-nums}
+    #cardiolab-console .cl-presets button:last-child:nth-child(odd){grid-column:1/-1}
+    #cardiolab-console .cl-adjust{display:grid;grid-template-columns:1fr 1fr;gap:5px;border-top:1px solid var(--cl-line);padding-top:9px}
+    #cardiolab-console .cl-adjust button{padding:7px;min-height:40px}
+    #cardiolab-console .cl-center{min-width:0;display:flex;flex-direction:column;gap:12px;position:relative}
+    #cardiolab-console .cl-mediahead{display:flex;gap:8px;justify-content:space-between;align-items:center;color:light-dark(#17362e,#f0f5e9)}
+    #cardiolab-console .cl-yt{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:500}
+    #cardiolab-console .cl-ytmark{background:#ce3026;color:#fff;border-radius:7px;width:29px;height:22px;display:grid;place-items:center}
+    #cardiolab-console .cl-ytmark svg{width:14px;height:14px}
+    #cardiolab-console .cl-mediahead button{background:var(--cl-panel);min-height:36px;font-size:12px;padding:7px 10px}
+    #cardiolab-console .cl-film{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:10px;color:#f7f8eb;padding:14px 10px;text-shadow:0 1px 14px #102f24}
+    #cardiolab-console .cl-film .cl-filmname{font-size:clamp(26px,4vw,44px);font-weight:500;line-height:1.03;letter-spacing:-1.5px;max-width:330px}
+    #cardiolab-console .cl-film .cl-filmsub{font-size:12px;letter-spacing:1px}
+    #cardiolab-console .cl-film button{color:var(--cl-ink);background:var(--cl-panel);text-shadow:none;min-height:38px;font-size:12px}
+    #cardiolab-console .cl-viewbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--cl-panel)}
+    #cardiolab-console .cl-viewbar button{min-height:36px;padding:6px 10px;font-size:12px}
+    #cardiolab-console .cl-trackwrap{background:var(--cl-panel);border-radius:14px;display:grid;grid-template-columns:130px 1fr auto;align-items:center;gap:8px;padding:9px 12px;position:relative}
+    #cardiolab-console .cl-trackwrap svg.cl-track{width:100%;height:63px;display:block;overflow:visible}
+    #cardiolab-console .cl-tracklane{fill:none;stroke:var(--cl-line);stroke-width:2}
+    #cardiolab-console .cl-trackpath{fill:none;stroke:var(--cl-soft);stroke-width:18}
+    #cardiolab-console .cl-trackprogress{fill:none;stroke:var(--cl-accent);stroke-width:18}
+    #cardiolab-console .cl-runner{fill:var(--cl-accent);stroke:var(--cl-panel);stroke-width:5}
+    #cardiolab-console .cl-trackcopy strong{font-size:18px;font-weight:500;display:block;font-variant-numeric:tabular-nums}
+    #cardiolab-console .cl-trackcopy small{font-size:11px;color:var(--cl-muted);display:block}
+    #cardiolab-console .cl-trackwrap button{padding:8px;min-width:38px;min-height:38px}
+    #cardiolab-console .cl-trackbigcopy{display:none}
+    #cardiolab-console[data-focus=track] .cl-landscape{opacity:0}
+    #cardiolab-console[data-focus=track] .cl-film{display:none}
+    #cardiolab-console[data-focus=track] .cl-trackwrap{flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px 16px;gap:14px}
+    #cardiolab-console[data-focus=track] .cl-trackwrap svg.cl-track{height:auto;max-height:190px}
+    #cardiolab-console[data-focus=track] .cl-trackcopy{text-align:center}
+    #cardiolab-console[data-focus=track] .cl-trackcopy strong{font-size:24px}
+    #cardiolab-console[data-focus=track] .cl-trackwrap button{position:absolute;top:12px;right:12px}
+    #cardiolab-console[data-focus=track] .cl-trackbigcopy{display:block;color:var(--cl-muted);text-align:center;font-size:12px}
+    #cardiolab-console .cl-dock{padding:0 18px 16px}
+    #cardiolab-console .cl-metrics{display:grid;grid-template-columns:1.5fr 1.5fr 1.4fr repeat(3,1fr);background:var(--cl-panel);border-radius:15px;margin:12px 0;padding:16px 8px}
+    #cardiolab-console .cl-time-metric{text-align:center}
+    #cardiolab-console .cl-metric .cl-heart-label{display:flex;align-items:center;gap:4px;letter-spacing:.3px}
+    #cardiolab-console .cl-heart-label svg{width:13px;height:13px;flex-shrink:0;color:var(--cl-red);fill:var(--cl-red)}
+    #cardiolab-console .cl-metric{padding:0 13px;border-right:1px solid var(--cl-line);min-width:0}#cardiolab-console .cl-metric:last-child{border:0}
+    #cardiolab-console .cl-metric label{display:block;text-transform:uppercase;letter-spacing:1px;color:var(--cl-muted);font-size:10px;margin-bottom:4px}
+    #cardiolab-console .cl-metric output{font-variant-numeric:tabular-nums;font-size:28px;letter-spacing:-1px;font-weight:500;white-space:nowrap}
+    #cardiolab-console .cl-metric small{font-size:11px;color:var(--cl-muted);margin-left:4px}
+    #cardiolab-console .cl-sessionrow{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+    #cardiolab-console .cl-sessioncopy{flex:1;min-width:180px}
+    #cardiolab-console .cl-sessioncopy strong{font-size:15px;font-weight:500;display:block}
+    #cardiolab-console .cl-sessioncopy span{color:var(--cl-muted);font-size:12px}
+    #cardiolab-console .cl-sessionactions{display:flex;gap:8px;flex-wrap:wrap}#cardiolab-console .cl-sessionactions button{min-width:120px}
+    #cardiolab-console .cl-intervalbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--cl-panel)}
+    #cardiolab-console .cl-phase{flex:1;min-width:0}#cardiolab-console .cl-phase strong{font-weight:500;font-size:15px}#cardiolab-console .cl-phase span{display:block;font-size:12px;color:var(--cl-muted)}
+    #cardiolab-console .cl-phasebar{height:4px;background:var(--cl-soft);margin-top:8px;border-radius:4px;overflow:hidden}#cardiolab-console .cl-phasebar div{height:100%;background:var(--cl-accent);width:0}
+    #cardiolab-console .cl-modal{background:var(--cl-panel);border-radius:16px;padding:22px;flex:1;display:flex;flex-direction:column;gap:16px;min-width:0}
+    #cardiolab-console .cl-modaltop{display:flex;justify-content:space-between;align-items:center;gap:12px}#cardiolab-console .cl-modaltop button{padding:8px;min-width:40px;min-height:40px}
+    #cardiolab-console .cl-modal p{color:var(--cl-muted);font-size:13px}
+    #cardiolab-console .cl-tabs{display:flex;background:var(--cl-soft);border-radius:10px;padding:4px;gap:4px}
+    #cardiolab-console .cl-tabs button{flex:1;padding:7px;min-height:38px;font-size:13px}
+    #cardiolab-console .cl-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    #cardiolab-console .cl-fieldgroup{padding:14px;border:1px solid var(--cl-line);border-radius:12px;display:flex;flex-direction:column;gap:10px}
+    #cardiolab-console .cl-fieldgroup>span{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--cl-muted)}
+    #cardiolab-console .cl-modal label{display:flex;flex-direction:column;gap:5px;font-size:12px}
+    #cardiolab-console input[type=number],#cardiolab-console select{width:100%;min-width:0;padding:10px;border:1px solid var(--cl-line);border-radius:8px;background:var(--cl-soft);color:var(--cl-ink);font-size:16px}
+    #cardiolab-console input[type=checkbox]{accent-color:var(--cl-accent);width:20px;height:20px}
+    #cardiolab-console .cl-check{flex-direction:row!important;align-items:center;gap:10px!important;min-height:44px}
+    #cardiolab-console .cl-error{color:var(--cl-red);font-size:12px;min-height:0}
+    #cardiolab-console .cl-speaker{display:flex;gap:12px;align-items:center;padding:16px;background:var(--cl-soft);border-radius:12px}
+    #cardiolab-console .cl-speaker>div{flex:1}#cardiolab-console .cl-speaker small{display:block;color:var(--cl-muted);font-size:12px}
+    #cardiolab-console .cl-hardware{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 3px 0;color:var(--cl-muted)}
+    #cardiolab-console .cl-hardwarebuttons{display:flex;gap:8px;flex-wrap:wrap}#cardiolab-console .cl-hardware button{border:1px solid var(--cl-line);background:var(--cl-panel);font-size:12px;min-height:38px;padding:8px 12px}
+    #cardiolab-console .cl-sleep{background:var(--cl-panel);min-height:480px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;text-align:center;padding:30px}
+    #cardiolab-console .cl-sleep p{color:var(--cl-muted)}
+    #cardiolab-console .cl-statusnote{font-size:12px;min-height:17px;color:var(--cl-muted);padding:6px 3px 0}
+    #cardiolab-console[data-bigstats=false] .cl-metric output{font-size:23px}
+    @media(max-width:820px){#cardiolab-console .cl-stage{grid-template-columns:100px minmax(0,1fr) 100px;gap:10px;padding:12px}#cardiolab-console .cl-rail{padding:9px}#cardiolab-console .cl-metric{padding:0 8px}#cardiolab-console .cl-metric output{font-size:24px}#cardiolab-console .cl-trackwrap{grid-template-columns:95px 1fr auto}#cardiolab-console .cl-modal{padding:14px}#cardiolab-console .cl-fieldgroup{padding:9px}}
+    @media(max-width:640px){#cardiolab-console .cl-header{padding:12px;flex-wrap:wrap}#cardiolab-console .cl-head-actions{margin-left:auto}#cardiolab-console .cl-stage{grid-template-columns:1fr 1fr;gap:10px}#cardiolab-console .cl-center{grid-column:1/-1;grid-row:1;min-height:360px}#cardiolab-console .cl-rail{grid-row:2}#cardiolab-console .cl-presets{grid-template-columns:repeat(4,1fr);gap:4px}#cardiolab-console .cl-presets button:last-child:nth-child(odd){grid-column:auto}#cardiolab-console .cl-presets button{font-size:15px;min-height:44px}#cardiolab-console .cl-railvalue{font-size:25px}#cardiolab-console .cl-adjust{padding-top:6px}#cardiolab-console .cl-metrics{grid-template-columns:repeat(3,1fr);gap:16px 0;padding:14px 4px}#cardiolab-console .cl-metric:nth-child(3){border:0}#cardiolab-console .cl-metric label{font-size:10px}#cardiolab-console .cl-dock{padding:0 12px 14px}#cardiolab-console .cl-sessionactions{width:100%}#cardiolab-console .cl-sessionactions button{flex:1}#cardiolab-console .cl-intervalbar{flex-wrap:wrap}#cardiolab-console .cl-intervalbar button{flex:1}#cardiolab-console .cl-demo{font-size:10px}#cardiolab-console .cl-brand{font-size:19px}#cardiolab-console .cl-fields{gap:8px}#cardiolab-console .cl-modal{padding:14px}#cardiolab-console .cl-trackwrap{grid-template-columns:100px 1fr auto}#cardiolab-console .cl-speaker{flex-wrap:wrap}#cardiolab-console .cl-hardware{align-items:flex-start}}
+    @media(max-width:380px){#cardiolab-console .cl-presets{grid-template-columns:repeat(3,1fr)}#cardiolab-console .cl-trackwrap{grid-template-columns:84px 1fr auto;padding:8px}#cardiolab-console .cl-trackcopy strong{font-size:15px}#cardiolab-console .cl-trackcopy small{font-size:11px}#cardiolab-console .cl-header{gap:10px}#cardiolab-console .cl-head-actions{width:100%;justify-content:space-between}#cardiolab-console .cl-metric output{font-size:23px}}
+    #cardiolab-console .cl-presets{grid-template-columns:1fr}
+    #cardiolab-console .cl-presets button:last-child:nth-child(odd){grid-column:auto}
+    #cardiolab-console .cl-stage{grid-template-columns:96px minmax(0,1fr) 96px;padding:0;gap:0}
+    #cardiolab-console .cl-rail{border-radius:0;padding:10px 8px;gap:7px}
+    #cardiolab-console .cl-railhead{flex-wrap:wrap}
+    #cardiolab-console .cl-presets{gap:3px}
+    #cardiolab-console .cl-presets button{min-height:34px;padding:4px;font-size:16px;border-radius:6px}
+    #cardiolab-console .cl-center{padding:16px}
+    #cardiolab-console #cl-trackmain{display:flex;flex:1;min-height:320px}
+    #cardiolab-console #cl-trackmain .cl-trackwrap{width:100%}
+    #cardiolab-console #cl-trackdock{flex:0 1 340px;min-width:290px}
+    #cardiolab-console #cl-trackdock .cl-trackwrap{grid-template-columns:92px minmax(0,1fr) 38px;padding:6px 9px;gap:7px}
+    #cardiolab-console #cl-trackdock .cl-track{height:50px}
+    #cardiolab-console #cl-trackdock .cl-trackcopy strong{font-size:16px}
+    #cardiolab-console #cl-trackdock .cl-trackcopy small{font-size:11px}
+    @media(max-width:900px){#cardiolab-console .cl-sessioncopy{flex-basis:100%}#cardiolab-console #cl-trackdock{flex:1;min-width:260px}}
+    @media(max-width:640px){#cardiolab-console .cl-stage{grid-template-columns:1fr 1fr}#cardiolab-console .cl-center{padding:12px}#cardiolab-console .cl-presets button{min-height:44px}#cardiolab-console #cl-trackdock{min-width:0;flex-basis:100%}#cardiolab-console .cl-rail:first-of-type{border-right:1px solid var(--cl-line)}}
+    @media(pointer:coarse){#cardiolab-console .cl-presets button{min-height:44px}}
+    #cardiolab-console .cl-header{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,310px) minmax(0,1fr);gap:12px;padding:12px 10px}
+    #cardiolab-console .cl-header-left{display:flex;align-items:center;gap:12px;min-width:0}
+    #cardiolab-console .cl-header .cl-sessioncopy{min-width:0}
+    #cardiolab-console .cl-header #cl-trackdock{min-width:0;width:100%}
+    #cardiolab-console .cl-header .cl-trackwrap{background:var(--cl-soft)}
+    #cardiolab-console .cl-header .cl-trackpath{stroke:var(--cl-panel)}
+    #cardiolab-console .cl-header .cl-trackwrap button{background:var(--cl-panel)}
+    #cardiolab-console .cl-header .cl-sessionactions{flex-wrap:nowrap;width:auto;justify-self:end}
+    #cardiolab-console .cl-header .cl-sessionactions button{min-width:88px;padding:10px 12px}
+    #cardiolab-console .cl-header .cl-head-actions{margin:0;flex-wrap:nowrap;width:auto;gap:4px;flex-shrink:0}
+    #cardiolab-console .cl-header .cl-head-actions button{padding:10px;width:44px;height:44px}
+    #cardiolab-console .cl-header .cl-head-actions svg{width:18px;height:18px}
+    #cardiolab-console #cl-audiolabel{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+    #cardiolab-console[data-focus=track] .cl-header{grid-template-columns:minmax(0,1fr) minmax(270px,310px) minmax(0,1fr)}
+    #cardiolab-console .cl-header .cl-sessionactions{grid-column:3}
+    #cardiolab-console .cl-dock{padding-bottom:0}
+    #cardiolab-console .cl-intervalbar{margin:0 0 12px}
+    @media(max-width:920px){#cardiolab-console .cl-header,#cardiolab-console[data-focus=track] .cl-header{grid-template-columns:minmax(0,1fr) auto;gap:8px 12px}#cardiolab-console .cl-header-left{grid-column:1;grid-row:1}#cardiolab-console .cl-header #cl-trackdock{grid-column:1/-1;grid-row:2;max-width:310px;justify-self:center}#cardiolab-console .cl-header .cl-sessionactions{grid-column:2;grid-row:1}}
+    @media(max-width:640px){#cardiolab-console .cl-time-metric{grid-column:2;grid-row:1;border-right:1px solid var(--cl-line)!important}#cardiolab-console .cl-speed-metric{grid-column:3;grid-row:1;border-right:0}}
+    @media(max-width:540px){#cardiolab-console .cl-header,#cardiolab-console[data-focus=track] .cl-header{grid-template-columns:minmax(0,1fr);padding:10px}#cardiolab-console .cl-header-left{grid-column:1;grid-row:1}#cardiolab-console .cl-header #cl-trackdock{grid-column:1;grid-row:2}#cardiolab-console .cl-header .cl-sessionactions{grid-column:1;grid-row:3;justify-self:end}#cardiolab-console .cl-header .cl-sessionactions button{flex:1}}
+    @media(prefers-reduced-motion:reduce){#cardiolab-console *{transition:none!important}}
+  </style>
+  <div class="cl-shell">
+    <div class="cl-awake">
+      <header class="cl-header">
+        <div class="cl-header-left">
+          <div class="cl-head-actions"><button type="button" data-action="sensors" aria-label="Sensors" data-tooltip="Sensors"><i data-lucide="radio" aria-hidden="true"></i></button><button type="button" data-action="audio" aria-label="Bluetooth audio" data-tooltip="Bluetooth audio"><i data-lucide="bluetooth" aria-hidden="true"></i><span id="cl-audiolabel">Audio</span></button></div>
+          <div class="cl-sessioncopy"><strong id="cl-sessiontitle">Ready when you are.</strong><span id="cl-sessiondetail">Quick start at 2.0 mph</span></div>
+        </div>
+        <div id="cl-trackdock"></div>
+        <div class="cl-sessionactions"><button type="button" class="cl-plain" data-action="workout" id="cl-workoutbutton"><i data-lucide="sliders-horizontal" aria-hidden="true"></i>Workout</button><button type="button" class="cl-primary" data-action="main" id="cl-main">Quick start</button><button type="button" class="cl-stop" data-action="end" id="cl-end" hidden>End</button></div>
+      </header>
+      <main class="cl-stage">
+        <div class="cl-landscape" aria-hidden="true"><div class="cl-sun"></div><div class="cl-mountain"></div><div class="cl-mountain front"></div><div class="cl-road"></div></div>
+        <aside class="cl-rail" aria-label="Incline controls">
+          <div class="cl-railhead"><strong>Incline</strong><span>LEVEL</span></div><div class="cl-railvalue" id="cl-inclinerail">0</div>
+          <div class="cl-presets" id="cl-inclinepresets"></div>
+        </aside>
+        <section class="cl-center" aria-label="Entertainment and track">
+          <div class="cl-mediahead" id="cl-mediahead"><div class="cl-yt"><span class="cl-ytmark"><i data-lucide="play" aria-hidden="true"></i></span>YouTube</div><button type="button" data-action="signin" id="cl-signin">Sign in</button></div>
+          <div class="cl-film" id="cl-film"><div class="cl-filmsub">NATURE FILMS · PLAYER PREVIEW</div><div class="cl-filmname">The long<br>way home.</div><button type="button" data-action="play" id="cl-play"><i data-lucide="play" aria-hidden="true"></i>Play preview</button></div>
+          <div id="cl-trackmain" hidden></div>
+          <section class="cl-trackwrap" id="cl-trackwrap" aria-label="400 meter track">
+            <div class="cl-trackbigcopy">YOUR OWN LANE · 400 METERS</div>
+            <svg class="cl-track" viewBox="0 0 640 280" role="img" aria-label="Progress around a 400 meter running track">
+              <path class="cl-tracklane" d="M180 24 H460 A116 116 0 0 1 460 256 H180 A116 116 0 0 1 180 24Z"/>
+              <path class="cl-tracklane" d="M180 42 H460 A98 98 0 0 1 460 238 H180 A98 98 0 0 1 180 42Z"/>
+              <path class="cl-trackpath" id="cl-trackpath" d="M180 60 H460 A80 80 0 0 1 460 220 H180 A80 80 0 0 1 180 60Z"/>
+              <path class="cl-trackprogress" id="cl-trackprogress" d="M180 60 H460 A80 80 0 0 1 460 220 H180 A80 80 0 0 1 180 60Z"/>
+              <circle class="cl-runner" id="cl-runner" cx="180" cy="60" r="12"/>
+            </svg>
+            <div class="cl-trackcopy"><strong id="cl-lap">Lap 1 · 0 m</strong><small id="cl-lapdetail">400 m track · 0 laps complete</small></div>
+            <button type="button" data-action="track" id="cl-tracktoggle" aria-label="Expand track"><i data-lucide="expand" aria-hidden="true"></i></button>
+          </section>
+          <div class="cl-viewbar" id="cl-viewbar" hidden><span class="cl-sub">TRACK VIEW</span><button type="button" data-action="track"><i data-lucide="youtube" aria-hidden="true"></i>Back to YouTube</button></div>
+          <section class="cl-modal" id="cl-workout" aria-label="Configure two-speed intervals" hidden>
+            <div class="cl-modaltop"><div><div class="cl-sub">WORKOUT BUILDER</div><h2>Two speeds. Your rhythm.</h2></div><button type="button" data-action="close" aria-label="Close workout builder"><i data-lucide="x" aria-hidden="true"></i></button></div>
+            <div class="cl-tabs" aria-label="Interval switching mode"><button type="button" data-mode="time">Time</button><button type="button" data-mode="distance">Distance</button><button type="button" data-mode="manual">Manual</button></div>
+            <div class="cl-fields">
+              <div class="cl-fieldgroup"><span>Speed A · Recover</span><label>Speed (mph)<input id="cl-speedA" type="number" min="2" max="12" step="0.1" value="2"></label><label class="cl-triggerfield"><span class="cl-triggerlabel">Duration (seconds)</span><input id="cl-triggerA" type="number" min="10" step="10" value="60"></label></div>
+              <div class="cl-fieldgroup"><span>Speed B · Push</span><label>Speed (mph)<input id="cl-speedB" type="number" min="2" max="12" step="0.1" value="6"></label><label class="cl-triggerfield"><span class="cl-triggerlabel">Duration (seconds)</span><input id="cl-triggerB" type="number" min="10" step="10" value="60"></label></div>
+            </div>
+            <p id="cl-workouthelp">Alternate automatically. Each interval has its own duration.</p><div class="cl-error" id="cl-error" role="alert"></div>
+            <button type="button" class="cl-primary" data-action="startintervals"><i data-lucide="play" aria-hidden="true"></i>Start intervals</button>
+          </section>
+          <section class="cl-modal" id="cl-audio" aria-label="Bluetooth audio settings" hidden>
+            <div class="cl-modaltop"><div><div class="cl-sub">AUDIO</div><h2>Your sound, connected.</h2></div><button type="button" data-action="close" aria-label="Close audio settings"><i data-lucide="x" aria-hidden="true"></i></button></div>
+            <p>Pair once. Reconnect when your speaker is available.</p>
+            <div class="cl-speaker"><i data-lucide="speaker" aria-hidden="true"></i><div>My Bluetooth speaker<small id="cl-speakerstatus">Demo device · Available</small></div><button type="button" data-action="pair" id="cl-pair">Pair</button></div>
+            <label class="cl-check"><input type="checkbox" id="cl-autoconnect" checked>Reconnect automatically</label>
+            <button type="button" class="cl-plain" data-action="speakerpower" id="cl-speakerpower">Simulate speaker turning off</button>
+            <p>Audio pairing is simulated in this preview.</p>
+          </section>
+          <section class="cl-modal" id="cl-sensors" aria-label="Step calibration and heart rate" hidden>
+            <div class="cl-modaltop"><div><div class="cl-sub">SENSOR SETUP</div><h2>Every step counts.</h2></div><button type="button" data-action="close" aria-label="Close sensor settings"><i data-lucide="x" aria-hidden="true"></i></button></div>
+            <div class="cl-speaker"><i data-lucide="footprints" aria-hidden="true"></i><div>Vibration step counter<small>Screen accelerometer · CardioLab detector</small></div></div>
+            <div class="cl-sub">TWO-STAGE CALIBRATION</div>
+            <div class="cl-fields"><div class="cl-fieldgroup"><span>01 · Empty belt</span><h3>6 seconds</h3><p>Measure motor noise at your test speed.</p></div><div class="cl-fieldgroup"><span>02 · Counted walk</span><h3>30 seconds</h3><p>Enter your counted steps, then review the fit.</p></div></div>
+            <p>Keep the screen mounted and use the same speed for both stages. Apply a successful fit, then check a separate counted walk.</p>
+            <button type="button" class="cl-primary" data-action="calibrationpreview">Preview calibration</button>
+            <div class="cl-speaker"><i data-lucide="heart-pulse" aria-hidden="true"></i><div>Garmin Instinct Solar<small id="cl-hrsource">Direct Bluetooth heart rate · Demo</small></div><button type="button" data-action="hrpair" id="cl-hrpair">Connect</button></div>
+          </section>
+          <section class="cl-modal" id="cl-calibration" aria-label="Calibration flow preview" hidden>
+            <div class="cl-modaltop"><div><div class="cl-sub">CALIBRATION PREVIEW</div><h2 id="cl-cal-title">Measure empty-belt noise</h2></div><button type="button" data-action="sensors" aria-label="Back to sensor setup"><i data-lucide="arrow-left" aria-hidden="true"></i></button></div>
+            <p id="cl-cal-copy">At your test speed, leave the belt empty. The app warms up for 3 seconds, then records 6 seconds of vibration.</p>
+            <label id="cl-cal-input" hidden>Foot contacts you counted<input type="number" id="cl-cal-count" min="20" max="120" value="60"></label>
+            <p id="cl-cal-note">Flow preview only · No sensor samples are being recorded.</p>
+            <button type="button" class="cl-primary" data-action="calnext" id="cl-cal-next">Preview walking stage</button>
+          </section>
+          <section class="cl-modal" id="cl-account" aria-label="YouTube sign-in preview" hidden>
+            <div class="cl-modaltop"><h2>Make it your YouTube.</h2><button type="button" data-action="close" aria-label="Close sign-in preview"><i data-lucide="x" aria-hidden="true"></i></button></div>
+            <p>Your subscriptions, playlists, and watch history behind your workout controls.</p>
+            <button type="button" class="cl-primary" data-action="demoaccount">Use demo account</button>
+            <p>Real Google sign-in will happen in YouTube. This preview does not collect credentials or play YouTube videos.</p>
+          </section>
+        </section>
+        <aside class="cl-rail" aria-label="Speed controls">
+          <div class="cl-railhead"><strong>Speed</strong><span>MPH</span></div><div class="cl-railvalue" id="cl-speedrail">2.0</div>
+          <div class="cl-presets" id="cl-speedpresets"></div>
+        </aside>
+      </main>
+      <footer class="cl-dock">
+        <div class="cl-metrics" aria-label="Workout stats, simulated">
+          <div class="cl-metric"><label>Incline</label><output id="cl-incline">0</output><small>lvl</small></div>
+          <div class="cl-metric cl-speed-metric"><label>Speed</label><output id="cl-speed">0.0</output><small>mph</small></div>
+          <div class="cl-metric cl-time-metric"><label>Time</label><output id="cl-time">00:00</output></div>
+          <div class="cl-metric"><label>Distance</label><output id="cl-distance">0.00</output><small>mi</small></div>
+          <div class="cl-metric"><label>Steps</label><output id="cl-steps">0</output></div>
+          <div class="cl-metric"><label class="cl-heart-label"><i data-lucide="heart" aria-hidden="true"></i>Heart rate</label><output id="cl-hr">—</output><small>bpm</small></div>
+        </div>
+        <div class="cl-intervalbar" id="cl-intervalbar" hidden><div class="cl-phase"><strong id="cl-phasetitle">A · Recover</strong><span id="cl-phasedetail"></span><div class="cl-phasebar" id="cl-phasebar"><div id="cl-phasefill"></div></div></div><button type="button" class="cl-primary" data-action="switch" id="cl-switch">Switch to B · 6.0 mph</button></div>
+      </footer>
+    </div>
+    <div class="cl-sleep" id="cl-sleep" hidden><div class="cl-brand"><span class="cl-brandmark"><i data-lucide="activity" aria-hidden="true"></i></span>CardioLab</div><h2>See you on the track.</h2><p>Screen asleep · Press treadmill Start to wake.</p></div>
+  </div>
+  <div class="cl-hardware"><span class="cl-sub">TREADMILL BUTTONS · SIMULATED</span><span class="cl-demo" id="cl-demo">DEMO READINGS</span><div class="cl-hardwarebuttons"><button type="button" data-action="sleep"><i data-lucide="moon" aria-hidden="true"></i>Screen sleep</button><button type="button" data-action="hardwarestart"><i data-lucide="play" aria-hidden="true"></i>Start</button><button type="button" data-action="hardwarestop"><i data-lucide="square" aria-hidden="true"></i>Stop</button></div></div>
+  <div class="cl-statusnote" id="cl-note" role="status" aria-live="polite">Preview only · No treadmill commands</div>
+  <script>
+  (()=>{
+    const root=document.getElementById('cardiolab-console');
+    const q=s=>root.querySelector(s), qa=s=>[...root.querySelectorAll(s)];
+    const defaults={awake:true,status:'idle',speed:2,incline:0,seconds:0,meters:0,steps:0,kind:'quick',mode:'time',a:2,b:6,timeA:60,timeB:60,distA:200,distB:200,phase:0,phaseSeconds:0,phaseMeters:0,cycle:1,focus:'video',account:false,playing:false,paired:false,speakerOn:true,connected:false,auto:true};
+    let s={...defaults},panel=null,lastSnapshot='',calStage=0;
+    const design={shortcuts:'Every mph',largeStats:true,simulationRate:1};
+    const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+    const time=n=>{const whole=Math.floor(n+.00001);return `${Math.floor(whole/60).toString().padStart(2,'0')}:${(whole%60).toString().padStart(2,'0')}`;};
+    const note=t=>q('#cl-note').textContent=t;
+    function restore(raw,initial=false){const saved=raw?.privateContent;if(saved?.version!==1)return;s={...defaults,...saved.session};if(initial&&s.status==='running')s.status='paused';s.speed=clamp(Number(s.speed)||2,2,12);s.incline=clamp(Number(s.incline)||0,0,12);s.focus=s.focus==='track'?'track':'video';}
+    function persist(){const privateContent={version:1,session:{...s}};lastSnapshot=JSON.stringify(privateContent);if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{app:'CardioLab',preview:true,layout:'session status, compact track and session buttons in top header; incline left, speed right, single columns; stats bottom',stepSource:'Existing vibration detector with two-stage calibration',heartRateSource:'Garmin Instinct Solar direct BLE',focus:s.focus,intervals:{mode:s.mode,speedA:s.a,speedB:s.b,timeA:s.timeA,timeB:s.timeB,distanceA:s.distA,distanceB:s.distB},audioAutoReconnect:s.auto,preferredShortcuts:design.shortcuts},privateContent}).catch(()=>{});}
+    restore(window.openai?.widgetState,true);
+    function presets(){q('#cl-speedpresets').innerHTML=(design.shortcuts==='Every mph'?[2,3,4,5,6,7,8,9,10,11,12]:[2,4,6,8,10,12]).map(v=>`<button type="button" class="cursor-interaction" data-speed="${v}" aria-label="Set speed to ${v} mph">${v}</button>`).join('');q('#cl-inclinepresets').innerHTML=Array.from({length:13},(_,v)=>v).map(v=>`<button type="button" class="cursor-interaction" data-incline="${v}" aria-label="Set incline to level ${v}">${v}</button>`).join('');}
+    function fillForm(){q('#cl-speedA').value=s.a;q('#cl-speedB').value=s.b;q('#cl-triggerA').value=s.mode==='distance'?s.distA:s.timeA;q('#cl-triggerB').value=s.mode==='distance'?s.distB:s.timeB;qa('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===s.mode)));qa('.cl-triggerfield').forEach(e=>e.hidden=s.mode==='manual');qa('.cl-triggerlabel').forEach(e=>e.textContent=s.mode==='distance'?'Distance (meters)':'Duration (seconds)');q('#cl-workouthelp').textContent=s.mode==='manual'?'Tap Switch during your workout to move between A and B.':'Alternate automatically. Each interval has its own '+(s.mode==='time'?'duration.':'distance.');q('#cl-error').textContent='';}
+    function readForm(){const a=Number(q('#cl-speedA').value),b=Number(q('#cl-speedB').value),ta=Number(q('#cl-triggerA').value),tb=Number(q('#cl-triggerB').value);if(!Number.isFinite(a)||!Number.isFinite(b)||a<2||a>12||b<2||b>12){q('#cl-error').textContent='Choose both speeds between 2 and 12 mph.';return false;}if(s.mode!=='manual'&&(!Number.isFinite(ta)||!Number.isFinite(tb)||ta<10||tb<10)){q('#cl-error').textContent='Use at least 10 '+(s.mode==='time'?'seconds':'meters')+' for each interval.';return false;}s.a=a;s.b=b;if(s.mode==='time'){s.timeA=ta;s.timeB=tb;}if(s.mode==='distance'){s.distA=ta;s.distB=tb;}return true;}
+    function render(){root.dataset.focus=s.focus;root.dataset.bigstats=design.largeStats; q('.cl-awake').hidden=!s.awake;q('#cl-sleep').hidden=s.awake;const running=s.status==='running',active=running||s.status==='paused';
+      q('#cl-speedrail').textContent=s.speed.toFixed(1);q('#cl-inclinerail').textContent=s.incline;
+      qa('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.speed)===s.speed)));qa('[data-incline]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.incline)===s.incline)));
+      q('#cl-time').textContent=time(s.seconds);q('#cl-speed').textContent=(running?s.speed:0).toFixed(1);q('#cl-incline').textContent=s.incline;q('#cl-distance').textContent=(s.meters/1609.344).toFixed(2);q('#cl-steps').textContent=Math.floor(s.steps).toLocaleString();q('#cl-hr').textContent=s.seconds>0?Math.round(80+Math.min(s.seconds/2,30)+s.speed*4+s.incline):'—';
+      const laps=Math.floor(s.meters/400),progress=s.meters%400;q('#cl-lap').textContent=`Lap ${laps+1} · ${Math.floor(progress)} m`;q('#cl-lapdetail').textContent=`400 m track · ${laps} ${laps===1?'lap':'laps'} complete`;
+      const path=q('#cl-trackpath'),len=path.getTotalLength(),pos=path.getPointAtLength(progress/400*len);q('#cl-trackprogress').style.strokeDasharray=`${progress/400*len} ${len}`;q('#cl-runner').setAttribute('cx',pos.x);q('#cl-runner').setAttribute('cy',pos.y);
+      q('#cl-main').textContent=running?'Pause':s.status==='paused'?'Resume':'Quick start';q('#cl-end').hidden=!active;q('#cl-workoutbutton').hidden=active;
+      q('#cl-sessiontitle').textContent=s.status==='idle'?'Ready when you are.':s.status==='ended'?'Session complete.':(s.kind==='interval'?'Two-speed intervals':'Quick start')+(s.status==='paused'?' · Paused':' · In progress');
+      q('#cl-sessiondetail').textContent=active?(s.kind==='interval'?`${s.mode==='time'?'Timed':s.mode==='distance'?'Distance':'Manual'} intervals · Round ${s.cycle}`:'Your pace. Your time.'):(s.status==='ended'?`${time(s.seconds)} · ${(s.meters/1609.344).toFixed(2)} mi · ${laps} laps complete`:`Quick start at ${s.speed.toFixed(1)} mph`);
+      q('#cl-intervalbar').hidden=!(active&&s.kind==='interval');q('#cl-phasetitle').textContent=`${s.phase===0?'A · Recover':'B · Push'} · ${s.speed.toFixed(1)} mph`;
+      const duration=s.phase===0?s.timeA:s.timeB,distance=s.phase===0?s.distA:s.distB;
+      q('#cl-phasedetail').textContent=s.mode==='manual'?'Switch whenever you are ready':s.mode==='time'?`${time(Math.max(0,duration-s.phaseSeconds))} until next speed`:`${Math.ceil(Math.max(0,distance-s.phaseMeters))} m until next speed`;
+      q('#cl-switch').textContent=`Switch to ${s.phase===0?'B':'A'} · ${(s.phase===0?s.b:s.a).toFixed(1)} mph`;q('#cl-switch').disabled=!running;q('#cl-phasebar').hidden=s.mode==='manual';q('#cl-phasefill').style.width=clamp(100*(s.mode==='time'?s.phaseSeconds/duration:s.phaseMeters/distance),0,100)+'%';
+      const expanded=s.focus==='track',track=q('#cl-trackwrap'),trackParent=q(expanded?'#cl-trackmain':'#cl-trackdock');if(track.parentElement!==trackParent)trackParent.appendChild(track);q('#cl-trackmain').hidden=!expanded||!!panel;q('#cl-trackdock').hidden=expanded;
+      ['workout','audio','account','sensors','calibration'].forEach(p=>q('#cl-'+p).hidden=panel!==p);q('#cl-mediahead').hidden=!!panel||expanded;q('#cl-film').hidden=!!panel||expanded;track.hidden=!!panel&&expanded;q('#cl-viewbar').hidden=!!panel||!expanded;q('#cl-tracktoggle').setAttribute('aria-label',expanded?'Return track to top bar':'Expand track');
+      q('#cl-signin').textContent=s.account?'My YouTube':'Sign in';q('#cl-play').innerHTML=`<i data-lucide="${s.playing?'pause':'play'}" aria-hidden="true"></i>${s.playing?'Pause preview':'Play preview'}`;
+      q('#cl-audiolabel').textContent=s.connected?'Speaker':'Audio';q('#cl-speakerstatus').textContent=s.connected?'Connected · Demo device':!s.speakerOn?'Powered off · Demo device':s.paired?'Paired · Available':'Demo device · Available';q('#cl-pair').textContent=s.connected?'Disconnect':s.paired?'Connect':'Pair';q('#cl-pair').disabled=!s.speakerOn;q('#cl-autoconnect').checked=s.auto;q('#cl-speakerpower').textContent=`Simulate speaker turning ${s.speakerOn?'off':'on'}`;
+      q('#cl-demo').textContent='DEMO READINGS'+(design.simulationRate>1?` · ${design.simulationRate}×`:'');
+      if(globalThis.lucide)lucide.createIcons({root,attrs:{width:18,height:18}});
+    }
+    function start(kind){s.status='running';s.kind=kind;s.seconds=0;s.meters=0;s.steps=0;s.phase=0;s.phaseSeconds=0;s.phaseMeters=0;s.cycle=1;if(kind==='interval')s.speed=s.a;panel=null;note('Simulated session started · No treadmill commands');}
+    function switchPhase(){s.phase=1-s.phase;if(s.phase===0)s.cycle++;s.speed=s.phase===0?s.a:s.b;s.phaseSeconds=0;s.phaseMeters=0;note(`Interval ${s.phase===0?'A':'B'} · ${s.speed.toFixed(1)} mph (simulated)`);}
+    function main(){if(s.status==='running'){s.status='paused';note('Session paused');}else if(s.status==='paused'){s.status='running';note('Session resumed');}else start('quick');}
+    root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;
+      if(b.dataset.speed){s.speed=Number(b.dataset.speed);if(s.kind==='interval'&&s.status==='running')note('Speed adjusted for this interval; the next interval uses its saved speed.');}
+      else if(b.dataset.incline!==undefined)s.incline=Number(b.dataset.incline);
+      else if(b.dataset.mode){if(!readForm())return;s.mode=b.dataset.mode;fillForm();}
+      else switch(b.dataset.action){
+        case 'track':s.focus=s.focus==='video'?'track':'video';break;
+        case 'play':s.playing=!s.playing;note('Player state is simulated; no video is streaming.');break;
+        case 'signin':panel='account';break;case 'demoaccount':s.account=true;panel=null;note('Demo YouTube profile selected');break;
+        case 'sensors':panel='sensors';break;
+        case 'hrpair':q('#cl-hrsource').textContent='Instinct Solar · Direct BLE connected (demo)';q('#cl-hrpair').textContent='Connected';note('Garmin heart-rate connection simulated');break;
+        case 'calibrationpreview':if(s.status==='running')s.status='paused';panel='calibration';calStage=0;q('#cl-cal-title').textContent='Measure empty-belt noise';q('#cl-cal-copy').textContent='At your test speed, leave the belt empty. The app warms up for 3 seconds, then records 6 seconds of vibration.';q('#cl-cal-input').hidden=true;q('#cl-cal-next').textContent='Preview walking stage';break;
+        case 'calnext':calStage++;if(calStage===1){q('#cl-cal-title').textContent='Walk and count each step';q('#cl-cal-copy').textContent='After a 5-second settling countdown, count both left and right foot contacts during a 30-second walk.';q('#cl-cal-next').textContent='Enter reference count';}else if(calStage===2){q('#cl-cal-title').textContent='Your reference count';q('#cl-cal-copy').textContent='The app compares this count against the vibration recording and rejects fits that cannot separate steps from motor noise.';q('#cl-cal-input').hidden=false;q('#cl-cal-next').textContent='Finish preview';}else{panel='sensors';note('Calibration flow preview complete · No threshold was changed');}break;
+        case 'audio':panel='audio';break;case 'pair':s.paired=true;s.connected=!s.connected;note(s.connected?'Demo speaker connected':'Demo speaker disconnected');break;
+        case 'speakerpower':s.speakerOn=!s.speakerOn;s.connected=s.speakerOn&&s.paired&&s.auto;note(s.connected?'Speaker returned · Reconnected automatically (demo)':s.speakerOn?'Speaker available':'Speaker powered off');break;
+        case 'workout':panel='workout';fillForm();break;case 'close':panel=null;break;case 'startintervals':if(!readForm())return;start('interval');break;
+        case 'main':main();break;case 'end':s.status='ended';note('Session ended · Stats retained');break;case 'switch':switchPhase();break;
+        case 'sleep':if(s.status==='running')s.status='paused';s.awake=false;panel=null;note('Screen asleep · Press the simulated treadmill Start button');break;
+        case 'hardwarestart':if(!s.awake){s.awake=true;s.status=s.status==='paused'?'paused':s.status;note('CardioLab launched · Press Start again for '+(s.status==='paused'?'resume':'quick start'));}else if(s.status!=='running')main();else note('Session already running');break;
+        case 'hardwarestop':if(s.status==='running'){s.status='paused';note('Treadmill Stop → Paused · Press Stop again to end');}else if(s.status==='paused'){s.status='ended';note('Session ended');}else note('Treadmill already stopped');break;
+      }render();persist();
+    });
+    q('#cl-autoconnect').addEventListener('change',e=>{s.auto=e.target.checked;persist();});
+    let previous=performance.now();setInterval(()=>{const now=performance.now(),dt=Math.min((now-previous)/1000,2)*design.simulationRate;previous=now;if(s.status!=='running'||!s.awake)return;let remaining=dt;while(remaining>0){const step=Math.min(remaining,.1),m=s.speed*.44704*step;s.seconds+=step;s.meters+=m;s.steps+=m/(s.speed<4?.7:.95);s.phaseSeconds+=step;s.phaseMeters+=m;remaining-=step;if(s.kind==='interval'&&((s.mode==='time'&&s.phaseSeconds>=(s.phase===0?s.timeA:s.timeB))||(s.mode==='distance'&&s.phaseMeters>=(s.phase===0?s.distA:s.distB))))switchPhase();}render();},250);
+    window.addEventListener('openai:set_globals',e=>{const raw=e.detail?.globals?.widgetState;if(raw&&JSON.stringify(raw.privateContent)!==lastSnapshot){restore(raw);panel=null;render();}});
+    presets();qa('button').forEach(b=>b.classList.add('cursor-interaction'));render();
+    if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:()=>{presets();render();}});tweak.addSelect(design,'shortcuts',{label:'Speed shortcuts',options:['Every mph','Even mph']});tweak.addToggle(design,'largeStats',{label:'Large workout numbers'});tweak.addSlider(design,'simulationRate',{label:'Preview time speed',min:1,max:30,step:1,unit:'×'});}
+  })();
+  </script>
+</div>
