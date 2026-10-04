@@ -156,9 +156,13 @@ controller. Raw link log: `artifacts/treadmill-controls-20261004/` (local only).
 - The controller acknowledges B0 by first repeating its current D0 state, then reporting
   the transition. End goes through pause before stop, like the 5 s button hold.
 - B2 with the stock +5 is truncated to the requested value (3005 is reported as 3000).
-- Incline (B1) has not been tested on the hardware yet.
+- Second run (16:12–16:14) after the quick-start fix: Quick start sent B0 and, once the
+  controller reported start, B2 2.0 mph automatically (confirmed by D3 2000). Incline B1
+  levels 1, 2 and 0 were each confirmed by D2 within 30 ms (`F0D20101C4`, `F0D20102C5`,
+  `F0D20100C3`). 4.0 mph (B2 4005) was confirmed as D3 4000, and End from 4 mph went
+  through pause to stop in 2.5 s; the user reported the deceleration was not abrupt.
 
 ## Next justified test
 
-Supervised, in order: incline (B1) at low speed, then the link-loss test repeated at
-3–4 mph to judge how abruptly the belt stops when the heartbeat is lost.
+Supervised: repeat the link-loss test at 3–4 mph to judge how abruptly the belt stops
+when the heartbeat is lost (the 0.5 mph test could not show this).
