@@ -111,6 +111,8 @@ Findings:
   - Holding for about 5 s **ends the workout**: pause, then D0 `00` (stop) 240 ms
     later, and D1 drops back to all zeros (15:28:32). This is the only full stop from
     the console. Removing and reinserting the safety key also ends in stop.
+  - The button's LED shows the state: blinking red while paused, green once stopped
+    (observed by the user).
 - D1 layout confirmed: bytes 0–1 elapsed seconds (big-endian, passed 255 → `0100`),
   bytes 2–5 distance in 0.001 mile (at 2.5 mph: 27 counts in 38 s, expected 26.4),
   bytes 6–7 calories (reached 13), byte 8 heart rate (0, no chest strap).
