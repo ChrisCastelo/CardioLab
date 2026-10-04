@@ -17,3 +17,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Calibration tests failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Console test compilation failed' }
 & "$taskJava\java.exe" -cp "$PSScriptRoot\artifacts\tests" ConsoleSessionTest
 if ($LASTEXITCODE -ne 0) { throw 'Console tests failed' }
+& "$taskJava\javac.exe" -d "$PSScriptRoot\artifacts\tests" "$PSScriptRoot\app\src\main\java\com\cardio\lab\TreadmillState.java" "$PSScriptRoot\tests\TreadmillStateTest.java"
+if ($LASTEXITCODE -ne 0) { throw 'Treadmill state test compilation failed' }
+& "$taskJava\java.exe" -cp "$PSScriptRoot\artifacts\tests" TreadmillStateTest
+if ($LASTEXITCODE -ne 0) { throw 'Treadmill state tests failed' }

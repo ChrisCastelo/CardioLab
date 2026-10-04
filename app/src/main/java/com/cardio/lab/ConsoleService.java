@@ -11,6 +11,8 @@ import java.util.*;
 public final class ConsoleService extends Service implements SensorEventListener {
     public final ConsoleSession session=new ConsoleSession();
     public final StepDetector detector=new StepDetector();
+    /** Rebuilt from controller frames received over our own link; see TreadmillLink for what is sent. */
+    public final TreadmillState treadmill=new TreadmillState();
     public interface Listener {void changed();}
     public interface Samples {void sample(SensorEvent event);}
     public Samples calibrationSamples;
@@ -20,6 +22,8 @@ public final class ConsoleService extends Service implements SensorEventListener
     private SensorManager sensors;
     private HeartRateClient heart;
     private OverlayControls overlay;
+    private TreadmillLink link;
+    private boolean consoleVisible;
     private long lastTick,lastSave,hrAt,rateStart,sampleCount,lastSample;
     private int bpm;
     public double sensorRate;
@@ -36,7 +40,7 @@ public final class ConsoleService extends Service implements SensorEventListener
         Intent close=new Intent(this,ConsoleService.class).setAction("close");
         PendingIntent stop=PendingIntent.getService(this,1,close,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         Notification n=new Notification.Builder(this,"console").setSmallIcon(R.drawable.ic_launcher).setContentTitle("CardioLab sensors active")
-            .setContentText("Console preview · no treadmill commands").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,"Close console",stop).build()).build();
+            .setContentText("Treadmill link sends heartbeats only · no motion commands").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,"Close console",stop).build()).build();
         startForeground(41,n);
         restore();
         sensors=getSystemService(SensorManager.class);Sensor accelerometer=sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -47,6 +51,10 @@ public final class ConsoleService extends Service implements SensorEventListener
             public void measurement(int value){bpm=value;hrAt=SystemClock.elapsedRealtime();notifyUi();}
         });
         reconnectHeart();lastTick=SystemClock.elapsedRealtime();main.post(tick);
+        link=new TreadmillLink(new TreadmillLink.Listener(){
+            public void received(byte[] data,int count){treadmillBytes(data,count);}
+            public void changed(String status){notifyUi();}
+        },main);
     }
     @Override public int onStartCommand(Intent intent,int flags,int id){if(intent!=null&&"close".equals(intent.getAction())){session.pause();save();stopSelf();}return START_NOT_STICKY;}
     public void listen(Listener l){listeners.add(l);l.changed();}
@@ -63,6 +71,7 @@ public final class ConsoleService extends Service implements SensorEventListener
     public void enablePreview(boolean enabled){session.end();session.preview=enabled;session.elapsed=session.meters=0;detector.reset();message=enabled?"PREVIEW · simulated speed/distance · real steps and HR":"Controller not verified · controls are preview only";save();notifyUi();}
     public void action(String action){
         advance();
+        if(treadmillLive()&&!action.equals("end")){message="Use the treadmill's Start/Stop button · CardioLab only displays the belt for now";notifyUi();return;}
         if(action.equals("end")){session.end();session.intervals=false;save();notifyUi();return;}
         if(!session.preview){message="Connect and verify the treadmill before enabling real controls";notifyUi();return;}
         switch(action){
@@ -72,8 +81,21 @@ public final class ConsoleService extends Service implements SensorEventListener
         }
         save();notifyUi();
     }
-    public void speed(double value){advance();if(session.preview)session.setSpeed(value);save();notifyUi();}
-    public void incline(int value){if(session.preview)session.setIncline(value);save();notifyUi();}
+    public void speed(double value){advance();if(treadmillLive()){displayOnly();return;}if(session.preview)session.setSpeed(value);save();notifyUi();}
+    public void incline(int value){if(treadmillLive()){displayOnly();return;}if(session.preview)session.setIncline(value);save();notifyUi();}
+    private void displayOnly(){message="Use the treadmill's own buttons · CardioLab only displays the belt for now";notifyUi();}
+    public boolean treadmillLive(){return treadmill.live(SystemClock.elapsedRealtime());}
+    public boolean canReadLogs(){return checkSelfPermission("android.permission.READ_LOGS")==android.content.pm.PackageManager.PERMISSION_GRANTED;}
+    /** The console or its video overlay is on screen, so CardioLab may own the treadmill link. */
+    public void consoleVisible(boolean value){consoleVisible=value;claimLink();}
+    private void claimLink(){link.want(canReadLogs()&&(consoleVisible||overlay!=null));}
+    private void treadmillBytes(byte[] data,int count){
+        TreadmillState.Phase before=treadmill.phase;
+        link.echo(treadmill.bytes(data,count,SystemClock.elapsedRealtime()));
+        if(treadmill.phase==TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.PAUSED)detector.reset();
+        if(treadmill.phase!=before)notifyUi();
+    }
+    public String treadmillStatus(){return treadmillLive()?"Live from treadmill · "+treadmill.label():!canReadLogs()?"Grant READ_LOGS over adb so CardioLab can hand off from the stock app":link.status;}
     private void advance(){long now=SystemClock.elapsedRealtime();session.advance((now-lastTick)/1000.0);lastTick=now;}
     private final Runnable tick=new Runnable(){public void run(){advance();if(SystemClock.elapsedRealtime()-lastSave>1000)save();notifyUi();main.postDelayed(this,200);}};
     private void save(){
@@ -91,11 +113,11 @@ public final class ConsoleService extends Service implements SensorEventListener
         s.phase=p.getInt("phase",0);s.phaseElapsed=p.getFloat("pe",0);s.phaseMeters=p.getFloat("pm",0);
         if(s.preview)message="PREVIEW · simulated speed/distance · real steps and HR";
     }
-    @Override public void onSensorChanged(SensorEvent e){lastSample=e.timestamp;detector.add(e.timestamp,e.values[0],e.values[1],e.values[2],session.running);if(calibrationSamples!=null)calibrationSamples.sample(e);sampleCount++;if(rateStart==0)rateStart=e.timestamp;if(e.timestamp-rateStart>=1_000_000_000L){sensorRate=sampleCount*1e9/(e.timestamp-rateStart);sampleCount=0;rateStart=e.timestamp;}}
+    @Override public void onSensorChanged(SensorEvent e){lastSample=e.timestamp;detector.add(e.timestamp,e.values[0],e.values[1],e.values[2],session.running||treadmillLive()&&treadmill.phase==TreadmillState.Phase.RUNNING);if(calibrationSamples!=null)calibrationSamples.sample(e);sampleCount++;if(rateStart==0)rateStart=e.timestamp;if(e.timestamp-rateStart>=1_000_000_000L){sensorRate=sampleCount*1e9/(e.timestamp-rateStart);sampleCount=0;rateStart=e.timestamp;}}
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
-    public boolean showOverlay(){if(!Settings.canDrawOverlays(this))return false;hideOverlay();try{overlay=new OverlayControls(this);overlay.show();return true;}catch(RuntimeException e){hideOverlay();message="Overlay unavailable: "+e.getClass().getSimpleName();return false;}}
-    public void hideOverlay(){if(overlay!=null){overlay.close();overlay=null;}}
+    public boolean showOverlay(){if(!Settings.canDrawOverlays(this))return false;hideOverlay();try{overlay=new OverlayControls(this);overlay.show();claimLink();return true;}catch(RuntimeException e){hideOverlay();message="Overlay unavailable: "+e.getClass().getSimpleName();return false;}}
+    public void hideOverlay(){if(overlay!=null){overlay.close();overlay=null;}if(link!=null)claimLink();}
     public void openConsole(String action){hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action.equals("track")?"expandTrack":action));}
     @Override public void onConfigurationChanged(android.content.res.Configuration c){super.onConfigurationChanged(c);if(overlay!=null)showOverlay();}
-    @Override public void onDestroy(){advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
+    @Override public void onDestroy(){link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
 }

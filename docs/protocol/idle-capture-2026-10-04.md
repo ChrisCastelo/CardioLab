@@ -119,6 +119,22 @@ Findings:
 - D3 speed is reported only on change, so CardioLab must remember the last D3 value
   rather than expect periodic speed frames.
 
+## CardioLab owns the link (15:35–15:50)
+
+- FitOS closes `/dev/ttyS3` whenever another app is in front (`unexpectedlyPaused`), and
+  stops its heartbeats. In the background it keeps reopening and reconfiguring the port
+  about once a second without transmitting.
+- With FitOS released and nothing transmitting, a 30 s passive listen (and a safety-key
+  pull) produced no bytes: the controller only reports while it receives heartbeats.
+- Sending only the stock A0 heartbeat at 1 Hz made the controller resume D1 status at
+  1 Hz immediately; 7 of 20 heartbeats were echoed (FitOS sees every echo; unexplained).
+- CardioLab 0.6 (`TreadmillLink`) now owns the port while its console or video overlay is
+  on screen: A0 heartbeat once a second, verbatim echoes of D0/D3, nothing else. It opens
+  the port only after FitOS's last `SNT` log line is 3 s old, and releases it if FitOS
+  transmits again. A supervised walk at 0.5 mph showed live state, speed and time.
+- Unknown and required before any motion command: what the controller does when the
+  heartbeat stops while the belt is moving.
+
 ## Next justified test
 
 The supervised Start/Stop stage: the user stands at the console, ready on the physical

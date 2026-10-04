@@ -24,14 +24,14 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
     private TextView status;
     private CalibrationWizard calibration;
     private final ServiceConnection connection=new ServiceConnection(){
-        public void onServiceConnected(ComponentName name,IBinder binder){service=((ConsoleService.LocalBinder)binder).service();service.hideOverlay();build();service.listen(ConsoleActivity.this);handleIntent();}
+        public void onServiceConnected(ComponentName name,IBinder binder){service=((ConsoleService.LocalBinder)binder).service();service.hideOverlay();service.consoleVisible(true);build();service.listen(ConsoleActivity.this);handleIntent();}
         public void onServiceDisconnected(ComponentName name){service=null;}
     };
     @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(ConsoleUi.BG);getWindow().setNavigationBarColor(ConsoleUi.BG);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);if(state!=null)track=state.getBoolean("track");}
     @Override protected void onStart(){super.onStart();visible=true;Intent intent=new Intent(this,ConsoleService.class);startForegroundService(intent);bound=bindService(intent,connection,BIND_AUTO_CREATE);}
     @Override protected void onResume(){super.onResume();getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);if(service!=null)service.hideOverlay();}
     @Override protected void onPause(){if(calibration!=null)calibration.cancel();super.onPause();}
-    @Override protected void onStop(){visible=false;if(service!=null)service.unlisten(this);if(bound){unbindService(connection);bound=false;}service=null;super.onStop();}
+    @Override protected void onStop(){visible=false;if(service!=null){service.unlisten(this);service.consoleVisible(false);}if(bound){unbindService(connection);bound=false;}service=null;super.onStop();}
     @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("track",track);super.onSaveInstanceState(out);}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(service!=null)handleIntent();}
     private void handleIntent(){String action=getIntent().getStringExtra("action");getIntent().removeExtra("action");if(action!=null)open(action);}
@@ -48,7 +48,7 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
         status=ui.text(service.message,12,ConsoleUi.MUTED);status.setGravity(Gravity.CENTER);status.setPadding(0,ui.dp(20),0,0);center.addView(status);
         stage.addView(center,new LinearLayout.LayoutParams(0,-1,1));stage.addView(ui.rail(true),new LinearLayout.LayoutParams(ui.railWidth(),-1));root.addView(stage,new LinearLayout.LayoutParams(-1,0,1));footer=ui.footer();footerHeight=ui.footerHeight();root.addView(footer,new LinearLayout.LayoutParams(-1,footerHeight));setContentView(root);ui.refresh();
     }
-    @Override public void changed(){if(!visible||ui==null||service==null)return;ui.refresh();if(!service.message.contentEquals(status.getText()))status.setText(service.message);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
+    @Override public void changed(){if(!visible||ui==null||service==null)return;ui.refresh();String note=service.treadmillLive()&&!service.message.startsWith("Use the treadmill")?"Treadmill link: heartbeats only · CardioLab sends no motion commands":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
     private void open(String action){if(service==null)return;switch(action){
         case "home":break;
         case "track":track=!track;build();break;

@@ -38,7 +38,7 @@ final class ConsoleUi {
         root.addView(left,new FrameLayout.LayoutParams((width-trackWidth)/2-dp(20),-1,Gravity.START));
         LinearLayout track=new LinearLayout(context);track.setGravity(Gravity.CENTER_VERTICAL);track.setPadding(dp(8),dp(4),dp(8),dp(4));track.setBackground(round(SOFT));
         mini=new TrackView(context);track.addView(mini,new LinearLayout.LayoutParams(dp(82),dp(42)));LinearLayout caption=col();caption.setPadding(dp(8),0,dp(4),0);lap=text("",16,INK);lapDetail=text("",10,MUTED);caption.addView(lap);caption.addView(lapDetail);track.addView(caption,new LinearLayout.LayoutParams(0,-2,1));Button expand=button("⛶",false,()->actions.open("track"));expand.setContentDescription("Expand or collapse track");track.addView(expand,new LinearLayout.LayoutParams(dp(40),dp(44)));root.addView(track,new FrameLayout.LayoutParams(trackWidth,-1,Gravity.CENTER));track.setOnClickListener(v->actions.open("track"));
-        LinearLayout right=new LinearLayout(context);right.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);workout=button("Workout",false,()->actions.open("workout"));main=button("Quick start",true,()->{if(service.session.preview)service.action("main");else actions.open("connection");});end=button("End",false,()->service.action("end"));end.setTextColor(RED);
+        LinearLayout right=new LinearLayout(context);right.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);workout=button("Workout",false,()->actions.open("workout"));main=button("Quick start",true,()->{if(service.session.preview||service.treadmillLive())service.action("main");else actions.open("connection");});end=button("End",false,()->service.action("end"));end.setTextColor(RED);
         switcher=button("Switch speed",true,()->service.action("switch"));
         boolean compact=width<dp(1100);int mainWidth=dp(compact?88:108),endWidth=dp(compact?64:82);
         int switchWidth=Math.min(dp(200),(width-trackWidth)/2-dp(20)-mainWidth-endWidth-dp(18));
@@ -48,7 +48,7 @@ final class ConsoleUi {
     }
     View rail(boolean speed){
         LinearLayout root=col();root.setBackgroundColor(PANEL);root.setPadding(dp(8),dp(8),dp(8),dp(8));root.addView(text(speed?"Speed · mph":"Incline · level",12,INK));TextView value=text("—",28,INK);root.addView(value,new LinearLayout.LayoutParams(-1,dp(40)));if(speed)speedValue=value;else inclineValue=value;
-        for(int i=speed?2:0;i<=12;i++){final int n=i;Button b=button(String.valueOf(i),false,()->{if(!service.session.preview){actions.open("connection");return;}if(speed)service.speed(n);else service.incline(n);});b.setContentDescription(speed?"Speed "+i+" mph":"Incline level "+i);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,0,1);p.topMargin=dp(3);root.addView(b,p);(speed?speedButtons:inclineButtons).add(b);}
+        for(int i=speed?2:0;i<=12;i++){final int n=i;Button b=button(String.valueOf(i),false,()->{if(!service.session.preview&&!service.treadmillLive()){actions.open("connection");return;}if(speed)service.speed(n);else service.incline(n);});b.setContentDescription(speed?"Speed "+i+" mph":"Incline level "+i);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,0,1);p.topMargin=dp(3);root.addView(b,p);(speed?speedButtons:inclineButtons).add(b);}
         return root;
     }
     View footer(){
@@ -59,13 +59,24 @@ final class ConsoleUi {
     }
     private static void set(TextView view,String value){if(!value.contentEquals(view.getText()))view.setText(value);}
     void refresh(){
+        if(service.treadmillLive()){live();return;}
         ConsoleSession s=service.session;
-        if(title!=null){set(title,(s.preview?"Preview · ":"")+(s.started?(s.intervals?"Intervals":"Quick start")+(s.running?" · Running":" · Paused"):"Ready when you are"));set(detail,s.preview?"Simulated belt · real sensors":"Controller not connected");set(main,s.running?"Pause":s.started?"Resume":"Quick start");end.setVisibility(s.started?View.VISIBLE:View.GONE);workout.setVisibility(s.started?View.GONE:View.VISIBLE);set(lap,s.preview?"Lap "+(s.laps()+1)+" · "+(int)(s.meters%400)+" m":"400 m track");set(lapDetail,s.preview?s.laps()+" laps · preview":"Awaiting treadmill data");mini.meters(s.meters);}
+        if(title!=null){set(title,(s.preview?"Preview · ":"")+(s.started?(s.intervals?"Intervals":"Quick start")+(s.running?" · Running":" · Paused"):"Ready when you are"));set(detail,s.preview?"Simulated belt · real sensors":service.treadmillStatus());set(main,s.running?"Pause":s.started?"Resume":"Quick start");end.setVisibility(s.started?View.VISIBLE:View.GONE);workout.setVisibility(s.started?View.GONE:View.VISIBLE);set(lap,s.preview?"Lap "+(s.laps()+1)+" · "+(int)(s.meters%400)+" m":"400 m track");set(lapDetail,s.preview?s.laps()+" laps · preview":"Awaiting treadmill data");mini.meters(s.meters);}
         if(large!=null)large.meters(s.meters);
         if(speedValue!=null)set(speedValue,s.preview?String.format(Locale.US,"%.1f",s.speed):"—");if(inclineValue!=null)set(inclineValue,s.preview?String.valueOf(s.incline):"—");
         for(Button b:speedButtons)select(b,s.preview&&Integer.parseInt(b.getText().toString())==s.speed);for(Button b:inclineButtons)select(b,s.preview&&Integer.parseInt(b.getText().toString())==s.incline);
         if(values[0]!=null){String[] readings={s.preview?s.incline+" lvl":"—",s.preview?String.format(Locale.US,"%.1f mph",s.running?s.speed:0):"—",time(s.elapsed),s.preview?String.format(Locale.US,"%.2f mi",s.meters/1609.344):"—",service.freshSensor()?String.valueOf(service.detector.steps()):"—",service.heartRate()>0?service.heartRate()+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
         if(interval!=null){boolean show=s.intervals&&s.started;interval.setVisibility(show?View.VISIBLE:View.GONE);switcher.setVisibility(show?View.VISIBLE:View.GONE);switcher.setEnabled(s.running);set(switcher,"Switch to "+(s.phase==0?"B":"A")+" · "+(s.phase==0?s.speedB:s.speedA)+" mph");set(interval,(s.phase==0?"A · Recover":"B · Push")+" · "+(s.mode.equals("manual")?"Manual":s.mode.equals("time")?(int)Math.ceil((s.phase==0?s.limitA:s.limitB)-s.phaseElapsed)+" sec left":(int)Math.ceil((s.phase==0?s.limitA:s.limitB)-s.phaseMeters)+" m left"));}
+    }
+    /** Real treadmill readings; the belt is still driven by its own buttons and the stock app. */
+    private void live(){
+        TreadmillState t=service.treadmill;boolean known=t.incline!=Integer.MIN_VALUE;double meters=t.meters();
+        if(title!=null){set(title,"Treadmill · "+t.label());set(detail,"Live · use the treadmill's Start/Stop button");set(main,t.label());end.setVisibility(View.GONE);workout.setVisibility(View.GONE);set(lap,"Lap "+((int)(meters/400)+1)+" · "+(int)(meters%400)+" m");set(lapDetail,(int)(meters/400)+" laps · treadmill distance");mini.meters(meters);interval.setVisibility(View.GONE);switcher.setVisibility(View.GONE);}
+        if(large!=null)large.meters(meters);
+        if(speedValue!=null)set(speedValue,String.format(Locale.US,"%.1f",t.speedMph()));if(inclineValue!=null)set(inclineValue,known?String.valueOf(t.incline):"—");
+        for(Button b:speedButtons)select(b,false);for(Button b:inclineButtons)select(b,known&&Integer.parseInt(b.getText().toString())==t.incline);
+        int bpm=service.heartRate()>0?service.heartRate():t.heartRate;
+        if(values[0]!=null){String[] readings={known?t.incline+" lvl":"—",String.format(Locale.US,"%.1f mph",t.speedMph()),time(t.elapsed),String.format(Locale.US,"%.2f mi",t.distanceMiles()),service.freshSensor()?String.valueOf(service.detector.steps()):"—",bpm>0?bpm+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
     }
     private void select(Button b,boolean selected){if(b.isSelected()!=selected){b.setSelected(selected);b.setBackground(round(selected?LIME:SOFT));b.setTextColor(selected?BG:INK);}}
     static String time(double seconds){long s=(long)seconds;return String.format(Locale.US,"%02d:%02d",s/60,s%60);}
