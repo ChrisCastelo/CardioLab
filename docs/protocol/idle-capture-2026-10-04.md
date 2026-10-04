@@ -162,7 +162,19 @@ controller. Raw link log: `artifacts/treadmill-controls-20261004/` (local only).
   `F0D20100C3`). 4.0 mph (B2 4005) was confirmed as D3 4000, and End from 4 mph went
   through pause to stop in 2.5 s; the user reported the deceleration was not abrupt.
 
+## Physical buttons and link loss at speed (16:16–16:19, supervised)
+
+- Physical speed keys were reported as D3 changes and decoded correctly: 2.0 → 3.0 → 4.0,
+  then 0.1 mph steps up to 4.9 and back down to 3.0. The console therefore has both 1 mph
+  and 0.1 mph steps (or press-and-hold).
+- Physical incline keys were reported as D2 levels 1 → 2 → 3 → 2 → 1, matching the levels
+  CardioLab sends with B1.
+- Heartbeat cut at 3.0 mph, incline 1 (16:18:30): the controller sent one more D1 and then
+  nothing. When heartbeats resumed at 16:18:45 it reported D1 all zeros, D2 0 and D3 0:
+  the workout ended and the incline returned to 0. The user reported the belt stopped
+  "not too sharply". The delay before deceleration was not measured.
+
 ## Next justified test
 
-Supervised: repeat the link-loss test at 3–4 mph to judge how abruptly the belt stops
-when the heartbeat is lost (the 0.5 mph test could not show this).
+Gate C from the handoff: make CardioLab the HOME screen, then disable FitOS reversibly so
+it stops reopening the serial port, and test reboot, sleep/wake and recovery.
