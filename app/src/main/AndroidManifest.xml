@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Development permission, granted over adb: the stock app's serial log shows when it has released the port. -->
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
     <queries><intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent></queries>
@@ -15,6 +16,9 @@
         <service android:name=".ConsoleService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Continuous mounted accelerometer vibration step detection and BLE heart-rate acquisition while workout controls overlay a video app" />
         </service>
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+        </receiver>
         <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize" />
         <activity android:name=".VideoActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize" />
         <activity android:name=".ConsoleActivity" android:exported="true" android:launchMode="singleTask" android:screenOrientation="sensorLandscape">

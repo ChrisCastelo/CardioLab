@@ -47,6 +47,8 @@ public final class TreadmillStateTest {
         check(java.util.Arrays.equals(c.setState(2,6000),hex("F0B00102A3")),"B0 pause frame");
         c.line(rcv("F0D00102C3"),6100);check(c.pendingKind==null&&c.setSpeed(3,6200)==null,"paused belt refuses speed");
         check(java.util.Arrays.equals(c.setState(0,7000),hex("F0B00100A1")),"B0 stop from pause");
-        System.out.println("Treadmill state tests passed: phases, speed, D1 fields, freshness, checksum, fragments, limits, units, heartbeat, echoes, commands, confirmation, bounds");
+        java.util.List<byte[]> h=TreadmillState.handshake();String[] stock={"F0A10091","F0A30093","F0A70097","F072010164","F0A30093","F0730063"};
+        for(int i=0;i<stock.length;i++)check(java.util.Arrays.equals(h.get(i),hex(stock[i])),"handshake frame "+i+" matches the stock capture");
+        System.out.println("Treadmill state tests passed: phases, speed, D1 fields, freshness, checksum, fragments, limits, units, heartbeat, echoes, commands, confirmation, bounds, handshake");
     }
 }

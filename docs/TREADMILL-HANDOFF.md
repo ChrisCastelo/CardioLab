@@ -10,6 +10,39 @@ Moving the same laptop preserves the local backups under `C:\Cardio\artifacts`. 
 
 No custom serial commands, motor commands, firmware changes, or stock-app removals have been performed. The UI's Start, speed, incline, and interval controls currently affect only the preview model.
 
+## Current state (2026-10-04 evening, from the Mac)
+
+CardioLab now replaces FitOS on the treadmill link. Details and captures are in
+[the capture report](protocol/idle-capture-2026-10-04.md).
+
+- CardioLab `0.8-boot` owns `/dev/ttyS3` while its console or video overlay is on screen: it
+  configures the port with busybox `stty` (8N1, no input/output translation) while holding it
+  open, sends the stock connect handshake, a 1 Hz A0 heartbeat, echoes D0/D3, and sends B0/B1/B2
+  only from its own buttons. Each command is confirmed by the controller's D0/D2/D3 reply.
+- Verified with the user on the belt: start, pause, resume, end, speed 0.5–4.9 mph, incline 0–3,
+  physical speed/incline/Start/Stop keys mirrored on screen, and heartbeat loss at 0.5 and 3 mph
+  ending the workout with an acceptable stop and incline back to 0.
+- FitOS (`com.ucare.fitos`) is **disabled**, not uninstalled. The stock Echelon app and updater
+  remain enabled.
+- The firmware re-adds the Echelon `LandingActivity` as preferred HOME at every boot
+  (`PackageManager: Adding preferred activity …` from system_server), so `set-home-activity`
+  does not survive a reboot. CardioLab's `BootReceiver` opens the console after boot instead;
+  verified twice by reboot.
+- The power key does not sleep the screen while CardioLab is in front (it keeps the screen on).
+- Development permissions granted over adb: `READ_LOGS` (detects the stock app still using the
+  port) and the `SYSTEM_ALERT_WINDOW` app-op. They must be granted again after a reinstall.
+- On the Mac: adb is `~/Library/Android/sdk/platform-tools/adb`, tests run with `./test.sh`.
+
+Rollback to the stock experience:
+
+```bash
+adb -s 545C101585 shell pm enable com.ucare.fitos
+adb -s 545C101585 shell pm disable-user --user 0 com.cardio.lab
+adb -s 545C101585 shell cmd package set-home-activity --user 0 com.viatek.fitnation.echelon_android/echelon_android.fitnation.viatek.com.echelon_android_new.activities.LandingActivity
+```
+
+Re-enable CardioLab afterwards with `pm enable com.cardio.lab`.
+
 ## What we are building
 
 CardioLab will be the screen's main shell, with YouTube in the center and treadmill controls and real workout readings around it. The desired physical Start behavior is: first press wakes/opens CardioLab; a subsequent press starts a workout at 2 mph or the verified controller starting speed. Physical Stop and the safety key must retain priority. Whether the controller exposes a usable Start event while idle/asleep remains unverified; declaring an Android HOME activity does not implement this behavior.

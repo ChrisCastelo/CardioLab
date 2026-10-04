@@ -55,6 +55,11 @@ public final class TreadmillState {
         int sum=0xF0+op+payload.length;for(int i=0;i<payload.length;i++){f[3+i]=(byte)payload[i];sum+=payload[i]&255;}
         f[f.length-1]=(byte)(sum&255);return f;
     }
+    /**
+     * The stock app's connect sequence (2026-10-04 capture): device info, limits, fan limit, 72 01, limits, 73.
+     * After a screen reboot without it the controller reported status as F1 instead of D1.
+     */
+    public static List<byte[]> handshake(){return Arrays.asList(frame(0xA1),frame(0xA3),frame(0xA7),frame(0x72,1),frame(0xA3),frame(0x73));}
     /** The stock heartbeat, F0 A0 01 counter checksum, sent once per second. */
     public static byte[] heartbeat(int counter){return frame(0xA0,counter&255);}
     public boolean confirmPending(long now){return pendingKind!=null&&now-pendingSince<=CONFIRM_MS;}
