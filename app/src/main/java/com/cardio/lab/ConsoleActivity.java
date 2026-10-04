@@ -48,7 +48,7 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
         status=ui.text(service.message,12,ConsoleUi.MUTED);status.setGravity(Gravity.CENTER);status.setPadding(0,ui.dp(20),0,0);center.addView(status);
         stage.addView(center,new LinearLayout.LayoutParams(0,-1,1));stage.addView(ui.rail(true),new LinearLayout.LayoutParams(ui.railWidth(),-1));root.addView(stage,new LinearLayout.LayoutParams(-1,0,1));footer=ui.footer();footerHeight=ui.footerHeight();root.addView(footer,new LinearLayout.LayoutParams(-1,footerHeight));setContentView(root);ui.refresh();
     }
-    @Override public void changed(){if(!visible||ui==null||service==null)return;ui.refresh();String note=service.treadmillLive()&&!service.message.startsWith("Use the treadmill")?"Treadmill link: heartbeats only · CardioLab sends no motion commands":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
+    @Override public void changed(){if(!visible||ui==null||service==null)return;ui.refresh();String note=service.treadmillLive()&&service.message.startsWith("Controller not verified")?"Treadmill link active · physical Stop and safety key always work":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
     private void open(String action){if(service==null)return;switch(action){
         case "home":break;
         case "pauseHeartbeat":service.pauseHeartbeat(15000);break;

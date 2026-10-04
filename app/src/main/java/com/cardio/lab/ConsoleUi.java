@@ -71,10 +71,10 @@ final class ConsoleUi {
     /** Real treadmill readings; the belt is still driven by its own buttons and the stock app. */
     private void live(){
         TreadmillState t=service.treadmill;boolean known=t.incline!=Integer.MIN_VALUE;double meters=t.meters();
-        if(title!=null){set(title,"Treadmill · "+t.label());set(detail,"Live · use the treadmill's Start/Stop button");set(main,t.label());end.setVisibility(View.GONE);workout.setVisibility(View.GONE);set(lap,"Lap "+((int)(meters/400)+1)+" · "+(int)(meters%400)+" m");set(lapDetail,(int)(meters/400)+" laps · treadmill distance");mini.meters(meters);interval.setVisibility(View.GONE);switcher.setVisibility(View.GONE);}
+        if(title!=null){set(title,"Treadmill · "+t.label());set(detail,"Live · physical Stop and safety key always work");set(main,t.phase==TreadmillState.Phase.RUNNING?"Pause":t.phase==TreadmillState.Phase.PAUSED?"Resume":t.phase==TreadmillState.Phase.COUNTDOWN?"Starting…":t.phase==TreadmillState.Phase.STOPPED||t.phase==TreadmillState.Phase.UNKNOWN?"Quick start":t.label());end.setVisibility(t.phase==TreadmillState.Phase.RUNNING||t.phase==TreadmillState.Phase.PAUSED?View.VISIBLE:View.GONE);workout.setVisibility(View.GONE);set(lap,"Lap "+((int)(meters/400)+1)+" · "+(int)(meters%400)+" m");set(lapDetail,(int)(meters/400)+" laps · treadmill distance");mini.meters(meters);interval.setVisibility(View.GONE);switcher.setVisibility(View.GONE);}
         if(large!=null)large.meters(meters);
         if(speedValue!=null)set(speedValue,String.format(Locale.US,"%.1f",t.speedMph()));if(inclineValue!=null)set(inclineValue,known?String.valueOf(t.incline):"—");
-        for(Button b:speedButtons)select(b,false);for(Button b:inclineButtons)select(b,known&&Integer.parseInt(b.getText().toString())==t.incline);
+        for(Button b:speedButtons)select(b,t.phase==TreadmillState.Phase.RUNNING&&Math.abs(Integer.parseInt(b.getText().toString())-t.speedMph())<.05);for(Button b:inclineButtons)select(b,known&&Integer.parseInt(b.getText().toString())==t.incline);
         int bpm=service.heartRate()>0?service.heartRate():t.heartRate;
         if(values[0]!=null){String[] readings={known?t.incline+" lvl":"—",String.format(Locale.US,"%.1f mph",t.speedMph()),time(t.elapsed),String.format(Locale.US,"%.2f mi",t.distanceMiles()),service.freshSensor()?String.valueOf(service.detector.steps()):"—",bpm>0?bpm+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
     }

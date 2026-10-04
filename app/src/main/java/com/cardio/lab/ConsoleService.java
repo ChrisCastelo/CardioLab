@@ -40,7 +40,7 @@ public final class ConsoleService extends Service implements SensorEventListener
         Intent close=new Intent(this,ConsoleService.class).setAction("close");
         PendingIntent stop=PendingIntent.getService(this,1,close,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         Notification n=new Notification.Builder(this,"console").setSmallIcon(R.drawable.ic_launcher).setContentTitle("CardioLab sensors active")
-            .setContentText("Treadmill link sends heartbeats only · no motion commands").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,"Close console",stop).build()).build();
+            .setContentText("Treadmill link active · physical Stop and safety key always work").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,"Close console",stop).build()).build();
         startForeground(41,n);
         restore();
         sensors=getSystemService(SensorManager.class);Sensor accelerometer=sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -71,7 +71,7 @@ public final class ConsoleService extends Service implements SensorEventListener
     public void enablePreview(boolean enabled){session.end();session.preview=enabled;session.elapsed=session.meters=0;detector.reset();message=enabled?"PREVIEW · simulated speed/distance · real steps and HR":"Controller not verified · controls are preview only";save();notifyUi();}
     public void action(String action){
         advance();
-        if(treadmillLive()&&!action.equals("end")){message="Use the treadmill's Start/Stop button · CardioLab only displays the belt for now";notifyUi();return;}
+        if(treadmillLive()){treadmillAction(action);return;}
         if(action.equals("end")){session.end();session.intervals=false;save();notifyUi();return;}
         if(!session.preview){message="Connect and verify the treadmill before enabling real controls";notifyUi();return;}
         switch(action){
@@ -81,9 +81,30 @@ public final class ConsoleService extends Service implements SensorEventListener
         }
         save();notifyUi();
     }
-    public void speed(double value){advance();if(treadmillLive()){displayOnly();return;}if(session.preview)session.setSpeed(value);save();notifyUi();}
-    public void incline(int value){if(treadmillLive()){displayOnly();return;}if(session.preview)session.setIncline(value);save();notifyUi();}
-    private void displayOnly(){message="Use the treadmill's own buttons · CardioLab only displays the belt for now";notifyUi();}
+    public void speed(double value){advance();if(treadmillLive()){command(now->treadmill.setSpeed(value,now),String.format(Locale.US,"%.1f mph",value));return;}if(session.preview)session.setSpeed(value);save();notifyUi();}
+    public void incline(int value){if(treadmillLive()){command(now->treadmill.setIncline(value,now),"incline "+value);return;}if(session.preview)session.setIncline(value);save();notifyUi();}
+    /** Quick start runs at 2 mph; resuming restores the speed held before the pause (the controller restarts at 0.5). */
+    private double speedAfterStart;
+    private String commandLabel="";
+    private void treadmillAction(String action){
+        TreadmillState.Phase p=treadmill.phase;
+        if(action.equals("main")){
+            if(p==TreadmillState.Phase.RUNNING){speedAfterStart=treadmill.speedMph();command(now->treadmill.setState(2,now),"pause");}
+            else if(p==TreadmillState.Phase.PAUSED){if(speedAfterStart<2)speedAfterStart=2;command(now->treadmill.setState(1,now),"resume");}
+            else if(p==TreadmillState.Phase.STOPPED||p==TreadmillState.Phase.UNKNOWN){speedAfterStart=2;command(now->treadmill.setState(1,now),"start");}
+            else{message="Treadmill is "+treadmill.label().toLowerCase(Locale.US)+" · wait or use its own buttons";notifyUi();}
+        }else if(action.equals("end"))command(now->treadmill.setState(0,now),"end");
+    }
+    private interface Command {byte[] build(long now);}
+    /** Builds the frame only once no earlier command is awaiting confirmation (building marks it pending). */
+    private void command(Command build,String what){
+        long now=SystemClock.elapsedRealtime();
+        if(treadmill.confirmPending(now)){message="Waiting for the treadmill to confirm "+commandLabel;notifyUi();return;}
+        byte[] frame=build.build(now);
+        if(frame==null){message="The treadmill can't "+what+" right now ("+treadmill.label().toLowerCase(Locale.US)+")";notifyUi();return;}
+        if(!link.send(frame)){treadmill.pendingKind=null;message="Treadmill link is not open";notifyUi();return;}
+        commandLabel=what;message="Sent "+what+" · waiting for the treadmill";notifyUi();
+    }
     public boolean treadmillLive(){return treadmill.live(SystemClock.elapsedRealtime());}
     public boolean canReadLogs(){return checkSelfPermission("android.permission.READ_LOGS")==android.content.pm.PackageManager.PERMISSION_GRANTED;}
     /** The console or its video overlay is on screen, so CardioLab may own the treadmill link. */
@@ -95,11 +116,14 @@ public final class ConsoleService extends Service implements SensorEventListener
         TreadmillState.Phase before=treadmill.phase;
         link.echo(treadmill.bytes(data,count,SystemClock.elapsedRealtime()));
         if(treadmill.phase==TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.PAUSED)detector.reset();
+        if(treadmill.phase==TreadmillState.Phase.RUNNING&&before!=TreadmillState.Phase.RUNNING&&speedAfterStart>0){double target=speedAfterStart;speedAfterStart=0;command(now->treadmill.setSpeed(target,now),String.format(Locale.US,"%.1f mph",target));}
+        // The controller answers B0 with its current state before the new one, so a stop seen while a command is pending is not a cancellation.
+        else if(treadmill.pendingKind==null&&treadmill.phase==TreadmillState.Phase.STOPPED||treadmill.phase==TreadmillState.Phase.SAFETY_KEY_OUT||treadmill.phase==TreadmillState.Phase.EMERGENCY_STOP)speedAfterStart=0;
         if(treadmill.phase!=before)notifyUi();
     }
     public String treadmillStatus(){return treadmillLive()?"Live from treadmill · "+treadmill.label():!canReadLogs()?"Grant READ_LOGS over adb so CardioLab can hand off from the stock app":link.status;}
     private void advance(){long now=SystemClock.elapsedRealtime();session.advance((now-lastTick)/1000.0);lastTick=now;}
-    private final Runnable tick=new Runnable(){public void run(){advance();if(SystemClock.elapsedRealtime()-lastSave>1000)save();notifyUi();main.postDelayed(this,200);}};
+    private final Runnable tick=new Runnable(){public void run(){advance();if(treadmill.confirmFailed(SystemClock.elapsedRealtime())){treadmill.pendingKind=null;speedAfterStart=0;message="The treadmill did not confirm "+commandLabel+" · the screen shows what the treadmill reports";}else if(treadmillLive()&&treadmill.pendingKind==null&&message.startsWith("Sent "))message="Treadmill confirmed "+commandLabel;if(SystemClock.elapsedRealtime()-lastSave>1000)save();notifyUi();main.postDelayed(this,200);}};
     private void save(){
         lastSave=SystemClock.elapsedRealtime();ConsoleSession s=session;
         getSharedPreferences("console",MODE_PRIVATE).edit().putBoolean("preview",s.preview).putBoolean("started",s.started).putBoolean("intervals",s.intervals)

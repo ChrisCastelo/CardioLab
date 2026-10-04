@@ -7,8 +7,9 @@ import java.util.*;
 
 /**
  * Owns /dev/ttyS3 while CardioLab is in front, replacing the stock app's link.
- * Sends only the A0 heartbeat and echoes of D0/D3 notifications (see TreadmillState); the belt is
- * still started, stopped and adjusted with the treadmill's own buttons.
+ * Sends only frames built by TreadmillState: the A0 heartbeat, echoes of D0/D3 notifications and
+ * the B0/B1/B2 state, incline and speed commands. If CardioLab stops, the heartbeat stops and the
+ * controller ends the workout (verified 2026-10-04 at 0.5 mph).
  * The stock app closes the port when another app comes to the front. Its SearialPortManager log is
  * followed so the port is opened only after its transmissions stop, and released if they resume.
  */
@@ -41,6 +42,9 @@ final class TreadmillLink {
     /** Debug builds only: withhold heartbeats to observe the controller's link-loss behaviour. */
     void pauseHeartbeat(long ms){heartbeatPausedUntil=SystemClock.elapsedRealtime()+ms;Log.w("TreadmillLink","heartbeat paused for "+ms+" ms");}
     void echo(List<byte[]> frames){if(!frames.isEmpty())link.post(()->{for(byte[] f:frames)write(f);});}
+    private static final Set<Integer> SENDABLE=new HashSet<>(Arrays.asList(0xA0,0xB0,0xB1,0xB2,0xD0,0xD3));
+    /** Returns false when the link is closed; nothing outside the allowed opcodes is ever written. */
+    boolean send(byte[] frame){if(out==null||frame==null||frame.length<4||!SENDABLE.contains(frame[1]&255))return false;link.post(()->write(frame));return true;}
     void close(){closing=true;link.post(()->{release("Treadmill link closed");thread.quitSafely();});if(logcat!=null)logcat.destroy();}
 
     private final Runnable tick=new Runnable(){public void run(){

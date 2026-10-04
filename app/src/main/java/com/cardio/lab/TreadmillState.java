@@ -6,8 +6,9 @@ import java.util.regex.*;
 /**
  * Treadmill state rebuilt from received controller frames (live serial bytes or the stock
  * app's SearialPortManager RCV log lines). Pure Java, no Android types.
- * The only frames CardioLab may send are built here: the A0 heartbeat and verbatim echoes of
- * D0/D3 notifications, exactly as the stock app does. No start, speed or incline command exists.
+ * The only frames CardioLab may send are built here: the A0 heartbeat, verbatim echoes of D0/D3
+ * notifications (as the stock app does), and the B0 state, B1 incline and B2 speed commands.
+ * A command counts as done only when the controller's own D0/D2/D3 notification confirms it.
  * Layouts and units are from docs/protocol/idle-capture-2026-10-04.md.
  */
 public final class TreadmillState {
@@ -20,6 +21,11 @@ public final class TreadmillState {
     /** The 2026-10-04 controller reported miles (A1 unit code 1); A1 is only sent when the stock app connects. */
     public boolean miles=true;
     public long frames,badFrames,lastFrameAt;
+    /** Command awaiting the controller's confirmation; kind is "state", "speed" or "incline". */
+    public String pendingKind;
+    public int pendingTarget;
+    public long pendingSince;
+    public static final long CONFIRM_MS=2000;
 
     /** Feeds one logcat line; returns true when it changed the state. */
     public boolean line(String text,long now){
@@ -44,13 +50,43 @@ public final class TreadmillState {
         }
         return echoes;
     }
+    static byte[] frame(int op,int... payload){
+        byte[] f=new byte[payload.length+4];f[0]=(byte)0xF0;f[1]=(byte)op;f[2]=(byte)payload.length;
+        int sum=0xF0+op+payload.length;for(int i=0;i<payload.length;i++){f[3+i]=(byte)payload[i];sum+=payload[i]&255;}
+        f[f.length-1]=(byte)(sum&255);return f;
+    }
     /** The stock heartbeat, F0 A0 01 counter checksum, sent once per second. */
-    public static byte[] heartbeat(int counter){byte[] f={(byte)0xF0,(byte)0xA0,1,(byte)counter,0};f[4]=(byte)((0xF0+0xA0+1+(counter&255))&255);return f;}
+    public static byte[] heartbeat(int counter){return frame(0xA0,counter&255);}
+    public boolean confirmPending(long now){return pendingKind!=null&&now-pendingSince<=CONFIRM_MS;}
+    public boolean confirmFailed(long now){return pendingKind!=null&&now-pendingSince>CONFIRM_MS;}
+    private byte[] pending(String kind,int target,long now,byte[] command){pendingKind=kind;pendingTarget=target;pendingSince=now;return command;}
+    /** B0: 00 stop, 01 start or resume, 02 pause. Returns null when the request does not fit the current state. */
+    public byte[] setState(int state,long now){
+        boolean idle=phase==Phase.STOPPED||phase==Phase.UNKNOWN;
+        boolean ok=state==1?idle||phase==Phase.PAUSED:state==2?phase==Phase.RUNNING:state==0&&(phase==Phase.RUNNING||phase==Phase.PAUSED);
+        return ok?pending("state",state,now,frame(0xB0,state)):null;
+    }
+    /** B2 in mph, only while running, within the controller's reported limits (0.5–12 mph seen on 2026-10-04). */
+    public byte[] setSpeed(double mph,long now){
+        int min=minSpeedRaw>0?minSpeedRaw:500,max=maxSpeedRaw>0?maxSpeedRaw:12000;
+        double units=miles?mph:mph*1.609344;
+        if(phase!=Phase.RUNNING||!Double.isFinite(units)||Math.round(units*1000)<min||Math.round(units*1000)>max)return null;
+        int raw=(int)Math.round(units*1000);
+        int wire=raw+5; // the stock encoder adds 5 to the scaled value
+        return pending("speed",raw,now,frame(0xB2,wire>>8&255,wire&255));
+    }
+    /** B1 incline level, only while running, within 0 and the reported maximum (12 seen on 2026-10-04). */
+    public byte[] setIncline(int level,long now){
+        int max=maxIncline>0?maxIncline:12;
+        return phase==Phase.RUNNING&&level>=0&&level<=max?pending("incline",level,now,frame(0xB1,level)):null;
+    }
     private void drop(int n){System.arraycopy(buffer,n,buffer,0,length-n);length-=n;}
     private static int u16(byte[] p,int i){return (p[i]&255)<<8|(p[i+1]&255);}
     private void apply(int op,byte[] p){
-        if(op==0xD0&&p.length>=1)phase=phase(p[0]&255);
-        else if(op==0xD1&&p.length>=9){elapsed=u16(p,0);distanceRaw=(u16(p,2)<<16)|u16(p,4);calories=u16(p,6);heartRate=p[8]&255;}
+        if(op==0xD0&&p.length>=1){phase=phase(p[0]&255);if("state".equals(pendingKind)&&(p[0]&255)==pendingTarget||"state".equals(pendingKind)&&pendingTarget==1&&phase==Phase.COUNTDOWN)pendingKind=null;}
+        if(op==0xD2&&p.length>=1&&"incline".equals(pendingKind)&&p[0]==pendingTarget)pendingKind=null;
+        if(op==0xD3&&p.length>=2&&"speed".equals(pendingKind)&&Math.abs(u16(p,0)-pendingTarget)<=50)pendingKind=null;
+        if(op==0xD1&&p.length>=9){elapsed=u16(p,0);distanceRaw=(u16(p,2)<<16)|u16(p,4);calories=u16(p,6);heartRate=p[8]&255;}
         else if(op==0xD2&&p.length>=1)incline=p[0];
         else if(op==0xD3&&p.length>=2)speedRaw=u16(p,0);
         else if(op==0xA1&&p.length>=7&&(p[6]==0||p[6]==1))miles=p[6]==1;

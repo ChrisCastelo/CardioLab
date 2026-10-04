@@ -32,6 +32,21 @@ public final class TreadmillStateTest {
         java.util.List<byte[]> echoes=e.bytes(rx,rx.length,1);
         check(echoes.size()==2&&java.util.Arrays.equals(echoes.get(0),hex("F0D00102C3"))&&java.util.Arrays.equals(echoes.get(1),hex("F0D3020000C5")),"only D0 and D3 are echoed, verbatim");
         check(e.phase==Phase.PAUSED&&e.frames==4,"raw bytes update state");
-        System.out.println("Treadmill state tests passed: phases, speed, D1 fields, freshness, checksum, fragments, limits, units, heartbeat, echoes");
+        TreadmillState c=new TreadmillState();
+        check(c.setSpeed(2,0)==null&&c.setIncline(1,0)==null&&c.setState(2,0)==null&&c.setState(0,0)==null,"only start is allowed before running");
+        check(java.util.Arrays.equals(c.setState(1,100),hex("F0B00101A2")),"B0 start frame");
+        check(c.confirmPending(2100)&&!c.confirmFailed(2100)&&c.confirmFailed(2101),"start waits 2 s for confirmation");
+        c.line(rcv("F0D00111D2"),300);check(c.pendingKind==null,"countdown confirms start");
+        c.line(rcv("F0D00101C2"),3300);
+        check(java.util.Arrays.equals(c.setSpeed(2,4000),hex("F0B20207D580")),"B2 2.0 mph adds the stock +5");
+        c.line(rcv("F0D30207D09C"),4100);check(c.pendingKind==null,"D3 2000 confirms 2.0 mph");
+        check(c.setSpeed(12.5,5000)==null&&c.setSpeed(0.4,5000)==null&&c.setSpeed(Double.NaN,5000)==null,"speed outside controller limits refused");
+        check(java.util.Arrays.equals(c.setIncline(3,5000),hex("F0B10103A5")),"B1 incline frame");
+        c.line(rcv("F0D20103C6"),5100);check(c.pendingKind==null&&c.incline==3,"D2 confirms incline");
+        check(c.setIncline(13,5200)==null&&c.setIncline(-1,5200)==null,"incline outside limits refused");
+        check(java.util.Arrays.equals(c.setState(2,6000),hex("F0B00102A3")),"B0 pause frame");
+        c.line(rcv("F0D00102C3"),6100);check(c.pendingKind==null&&c.setSpeed(3,6200)==null,"paused belt refuses speed");
+        check(java.util.Arrays.equals(c.setState(0,7000),hex("F0B00100A1")),"B0 stop from pause");
+        System.out.println("Treadmill state tests passed: phases, speed, D1 fields, freshness, checksum, fragments, limits, units, heartbeat, echoes, commands, confirmation, bounds");
     }
 }

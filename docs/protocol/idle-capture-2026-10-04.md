@@ -139,8 +139,26 @@ Findings:
   the belt stopped was not measured. The controller therefore fails safe on heartbeat
   loss, but CardioLab must not rely on that alone.
 
+## On-screen controls (16:10–16:11, supervised)
+
+CardioLab 0.7 sent each command once from its own buttons; every one was confirmed by the
+controller. Raw link log: `artifacts/treadmill-controls-20261004/` (local only).
+
+| Command | Sent | Controller reply |
+| --- | --- | --- |
+| Start | `F0B00101A2` | D0 `00` (current state), D0 `11` countdown, D3 0.5 mph, D0 `01` after 3 s |
+| 3.0 mph | `F0B2020BBD6C` (3000 + 5) | D3 `0BB8` = 3000 within 35 ms |
+| 2.0 mph | `F0B20207D580` (2000 + 5) | D3 `07D0` = 2000 |
+| Pause | `F0B00102A3` | D0 `01` (current), D0 `02`, D3 0 |
+| Resume | `F0B00101A2` | D0 `02` (current), countdown, 0.5 mph, D0 `01`; CardioLab then restored 2.0 mph |
+| End | `F0B00100A1` | D0 `01` (current), D0 `02`, D3 0, D0 `00` about 1.2 s later |
+
+- The controller acknowledges B0 by first repeating its current D0 state, then reporting
+  the transition. End goes through pause before stop, like the 5 s button hold.
+- B2 with the stock +5 is truncated to the requested value (3005 is reported as 3000).
+- Incline (B1) has not been tested on the hardware yet.
+
 ## Next justified test
 
-The supervised Start/Stop stage: the user stands at the console, ready on the physical
-Stop and safety key, and starts the belt from the stock app at its lowest speed. This
-should show the D0 state transitions, D3 speed, D4 key events and non-zero D1 fields.
+Supervised, in order: incline (B1) at low speed, then the link-loss test repeated at
+3–4 mph to judge how abruptly the belt stops when the heartbeat is lost.
