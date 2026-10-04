@@ -20,7 +20,8 @@ NAMES = {
     0xD2: 'incline_changed', 0xD3: 'speed_changed', 0xD4: 'physical_key',
     0xD5: 'user_presence', 0xD6: 'machine_lock_state',
 }
-STATES = {0: 'stop', 1: 'start', 2: 'pause', 10: 'confirm',
+# 0x11 is observed, not from stock source: about 3 s between physical Start and start.
+STATES = {0: 'stop', 1: 'start', 2: 'pause', 10: 'confirm', 0x11: 'start_countdown',
           0xAA: 'safety_key_not_plugged', 0xEA: 'emergency_stop'}
 
 

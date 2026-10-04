@@ -76,6 +76,47 @@ their checksums.
   up and key removal is reported rather than silently dropping communication.
 - Reinserting the key returns the controller to `stop`, not to any previous state.
 
+## Supervised belt run (15:19–15:24)
+
+The user started the belt with the physical Start key (FitOS requires a login, so no
+app command was used), changed speed with the physical keys, then pressed physical
+Stop. The resume/stop behaviour was explored until 15:28:32. FitOS sent nothing except heartbeats and echoes. Raw capture:
+`artifacts/treadmill-run-20261004-152015/` (local only). 912 frames, all checksums valid.
+
+| Time | Frame | Decoded | FitOS state log |
+| --- | --- | --- | --- |
+| 15:19:42.855 | `F0D00111D2` | D0 state `11` = start countdown (observed) | `Other` |
+| 15:19:42.887 | `F0D30201F4BA` | D3 speed 500 = 0.5 mph | |
+| 15:19:45.847 | `F0D00101C2` | D0 state `01` = start | `Start` |
+| 15:21:55 – 15:22:12 | `F0D302…` | D3 1500, 2500, 3500, 4500, 5500 | |
+| 15:22:31 – 15:22:32 | `F0D302…` | D3 4500, 3500, 2500 | |
+| 15:24:09.259 | `F0D00102C3` | D0 state `02` = pause | `Pause` |
+| 15:24:09.290 | `F0D3020000C5` | D3 speed 0 | |
+
+Every D0 and D3 frame was echoed back by FitOS within a few ms.
+
+Findings:
+
+- State `11` lasts about 3 s before `start`; it is the start countdown. The controller
+  begins at its 0.5 mph minimum.
+- The physical speed keys step 1.0 mph per press (0.5, 1.5, 2.5 …). No D4 key frames
+  were sent for Start, speed or Stop; the controller acts on its own keys and reports
+  the resulting D0/D3 changes.
+- The physical Start/Stop is one button, and its meaning depends on the press:
+  - A short press while running gives **pause**: D0 `02` and D3 speed 0, and D1 freezes.
+  - A short press while paused **resumes**. The controller repeats the countdown (`11`),
+    restarts at 0.5 mph (`start`), and elapsed time and distance continue. The
+    pre-pause speed is not restored.
+  - A double press is pause followed by resume (0.3 s apart). A 3 s hold also resumes.
+  - Holding for about 5 s **ends the workout**: pause, then D0 `00` (stop) 240 ms
+    later, and D1 drops back to all zeros (15:28:32). This is the only full stop from
+    the console. Removing and reinserting the safety key also ends in stop.
+- D1 layout confirmed: bytes 0–1 elapsed seconds (big-endian, passed 255 → `0100`),
+  bytes 2–5 distance in 0.001 mile (at 2.5 mph: 27 counts in 38 s, expected 26.4),
+  bytes 6–7 calories (reached 13), byte 8 heart rate (0, no chest strap).
+- D3 speed is reported only on change, so CardioLab must remember the last D3 value
+  rather than expect periodic speed frames.
+
 ## Next justified test
 
 The supervised Start/Stop stage: the user stands at the console, ready on the physical

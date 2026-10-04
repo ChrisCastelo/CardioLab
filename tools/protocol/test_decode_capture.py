@@ -54,5 +54,11 @@ class CaptureTests(unittest.TestCase):
         matches = [LOG.match(line) for line in read_lines(raw)]
         self.assertEqual([m.group(4) for m in matches if m], ['F0A0010192'])
 
+    def test_observed_start_sequence(self):
+        decoder = Decoder()
+        states = [decoder.feed(bytes.fromhex(h), 'rx')[0]['state']
+                  for h in ('F0D00111D2', 'F0D00101C2', 'F0D00102C3')]
+        self.assertEqual(states, ['start_countdown', 'start', 'pause'])
+
 if __name__ == '__main__':
     unittest.main()
