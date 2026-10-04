@@ -1,6 +1,6 @@
 """Offline tests. Synthetic frames are not treadmill observations."""
 import unittest
-from decode_capture import Decoder
+from decode_capture import Decoder, LOG, read_lines
 
 
 def fixture(op, payload):
@@ -47,6 +47,12 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(result['speed_wire_scaled'], 10)
         self.assertEqual(result['speed_unit'], 'unknown')
 
+
+    def test_log_dump_with_invalid_utf8(self):
+        raw = (b'10-04 15:08:07.000  100  100 I Other: \xb8\n'
+               b'10-04 15:08:07.664   954  1436 I SearialPortManager: SNT F0A0010192\n')
+        matches = [LOG.match(line) for line in read_lines(raw)]
+        self.assertEqual([m.group(4) for m in matches if m], ['F0A0010192'])
 
 if __name__ == '__main__':
     unittest.main()

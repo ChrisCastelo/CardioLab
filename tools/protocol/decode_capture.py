@@ -119,14 +119,18 @@ class Decoder:
 LOG = re.compile(r'^\s*(\d\d-\d\d\s+\d\d:\d\d:\d\d\.\d+)\s+(\d+)\s+\d+\s+\w\s+SearialPortManager\s*:\s*(SNT|RCV)\s+([0-9A-Fa-f]+)\s*$')
 
 
+def read_lines(raw):
+    # Full logcat dumps can hold non-UTF-8 bytes from other apps; frames are ASCII.
+    encoding = 'utf-16' if raw.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
+    return raw.decode(encoding, errors='replace').splitlines()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('capture', type=Path)
     args = parser.parse_args()
-    raw = args.capture.read_bytes()
-    encoding = 'utf-16' if raw.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
     decoder = Decoder()
-    for line in raw.decode(encoding).splitlines():
+    for line in read_lines(args.capture.read_bytes()):
         match = LOG.match(line)
         if not match:
             continue
