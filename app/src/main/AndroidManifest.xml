@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Development permission, granted over adb: the stock app's serial log shows when it has released the port. -->
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
+    <!-- Development permission, granted over adb: lets the video overlay fit the video app into the center. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <queries><intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent></queries>
     <application android:label="Cardio Lab" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@drawable/ic_launcher">
         <service android:name=".ConsoleService" android:exported="false" android:foregroundServiceType="specialUse">
