@@ -6,8 +6,8 @@ android {
         applicationId 'com.cardio.lab'
         minSdk 26
         targetSdk 34
-        versionCode 14
-        versionName '0.14-video-back'
+        versionCode 15
+        versionName '0.15-home-button'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
 }

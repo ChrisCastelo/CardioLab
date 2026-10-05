@@ -37,6 +37,8 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
   no window content) and `CardioLab` (return to the console). Enabled with
   `adb shell settings put secure enabled_accessibility_services com.cardio.lab/com.cardio.lab.NavigationService`
   and `accessibility_enabled 1`; turn off by deleting that setting or in Android Accessibility settings.
+- Whenever another app is in front without the video bar (Settings, the Echelon app, a dialog), a
+  floating `⌂ CardioLab` button in the bottom-right corner returns to the console.
 - Video: the video app runs full screen under a compact CardioLab bar (readings, speed −/+, pause);
   "Controls" expands the full edge panels. Shrinking the display (overscan) was tried and dropped:
   the browser drew edge to edge and full-screen video overflowed. This build has no freeform windows.

@@ -115,7 +115,20 @@ public final class ConsoleService extends Service implements SensorEventListener
     public void consoleVisible(boolean value){consoleVisible=value;claimLink();}
     /** Debug builds only, for the supervised link-loss test. */
     public void pauseHeartbeat(long ms){if((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0)link.pauseHeartbeat(ms);}
-    private void claimLink(){link.want(canReadLogs()&&(consoleVisible||overlay!=null));}
+    private void claimLink(){link.want(canReadLogs()&&(consoleVisible||overlay!=null));homeButton();}
+    private android.view.View home;
+    /** The screen has no navigation bar: whenever another app is in front without the video bar, a small button leads home. */
+    private void homeButton(){
+        boolean want=!consoleVisible&&overlay==null&&Settings.canDrawOverlays(this);android.view.WindowManager wm=getSystemService(android.view.WindowManager.class);
+        if(!want&&home!=null){try{wm.removeView(home);}catch(IllegalArgumentException ignored){}home=null;}
+        if(want&&home==null){
+            ConsoleUi ui=new ConsoleUi(this,this,this::openConsole);android.widget.Button b=ui.button("⌂ CardioLab",true,()->openConsole("home"));b.setContentDescription("Return to CardioLab");
+            android.view.WindowManager.LayoutParams p=new android.view.WindowManager.LayoutParams(ui.dp(132),ui.dp(44),android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,android.graphics.PixelFormat.TRANSLUCENT);
+            p.gravity=android.view.Gravity.BOTTOM|android.view.Gravity.END;p.x=ui.dp(12);p.y=ui.dp(12);p.setTitle("CardioLab home");
+            try{wm.addView(b,p);home=b;}catch(RuntimeException ignored){}
+        }
+    }
     private void treadmillBytes(byte[] data,int count){
         TreadmillState.Phase before=treadmill.phase;
         link.echo(treadmill.bytes(data,count,SystemClock.elapsedRealtime()));
@@ -159,5 +172,5 @@ public final class ConsoleService extends Service implements SensorEventListener
     public void hideOverlay(){if(overlay!=null){overlay.dismiss();overlay=null;}if(link!=null)claimLink();}
     public void openConsole(String action){if(action.equals("hide")&&overlay!=null){overlay.minimize();return;}hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action.equals("track")?"expandTrack":action));}
     @Override public void onConfigurationChanged(android.content.res.Configuration c){super.onConfigurationChanged(c);if(overlay!=null)showOverlay();}
-    @Override public void onDestroy(){link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
+    @Override public void onDestroy(){if(home!=null){try{getSystemService(android.view.WindowManager.class).removeView(home);}catch(IllegalArgumentException ignored){}home=null;}consoleVisible=true;link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
 }
