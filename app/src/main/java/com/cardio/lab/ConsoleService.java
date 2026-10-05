@@ -51,12 +51,14 @@ public final class ConsoleService extends Service implements SensorEventListener
         heart=new HeartRateClient(this,new HeartRateClient.Listener(){
             public void status(String value){heartStatus=value;if(!value.startsWith("Live")){bpm=0;hrAt=0;}notifyUi();}
             public void measurement(int value){bpm=value;hrAt=SystemClock.elapsedRealtime();notifyUi();}
+            public void moved(String address){getSharedPreferences("MainActivity",MODE_PRIVATE).edit().putString("hr_address",address).apply();}
         });
         reconnectHeart();speaker.start();lastTick=SystemClock.elapsedRealtime();main.post(tick);
         link=new TreadmillLink(new TreadmillLink.Listener(){
             public void received(byte[] data,int count){treadmillBytes(data,count);}
             public void changed(String status){notifyUi();}
         },main);
+        claimLink();
     }
     @Override public int onStartCommand(Intent intent,int flags,int id){if(intent!=null&&"close".equals(intent.getAction())){session.pause();save();stopSelf();}return START_NOT_STICKY;}
     public void listen(Listener l){listeners.add(l);l.changed();}
@@ -67,7 +69,7 @@ public final class ConsoleService extends Service implements SensorEventListener
     public void reconnectHeart(){
         SharedPreferences p=getSharedPreferences("MainActivity",MODE_PRIVATE);deviceName=p.getString("hr_name","");String address=p.getString("hr_address","");
         heart.stop();bpm=0;hrAt=0;heartStatus=address.isEmpty()?"Select a paired heart-rate sensor":"Connecting…";
-        if(!address.isEmpty())heart.start(address);
+        if(!address.isEmpty())heart.start(address,deviceName);
     }
     public void selectHeart(String address,String name){getSharedPreferences("MainActivity",MODE_PRIVATE).edit().putString("hr_address",address).putString("hr_name",name).apply();reconnectHeart();notifyUi();}
     public void enablePreview(boolean enabled){session.end();session.preview=enabled;session.elapsed=session.meters=0;detector.reset();message=enabled?"PREVIEW · simulated speed/distance · real steps and HR":"Controller not verified · controls are preview only";save();notifyUi();}
@@ -113,23 +115,16 @@ public final class ConsoleService extends Service implements SensorEventListener
     public boolean treadmillLive(){return treadmill.live(SystemClock.elapsedRealtime());}
     public boolean canReadLogs(){return checkSelfPermission("android.permission.READ_LOGS")==android.content.pm.PackageManager.PERMISSION_GRANTED;}
     /** The console or its video overlay is on screen, so CardioLab may own the treadmill link. */
-    public void consoleVisible(boolean value){consoleVisible=value;claimLink();}
+    /** Whenever the console is not in front, another app is (SmartTube, a PiP video maximized, Settings): show the bar. */
+    public void consoleVisible(boolean value){consoleVisible=value;if(!value&&overlay==null)showOverlay(true);}
     /** Debug builds only, for the supervised link-loss test. */
     public void pauseHeartbeat(long ms){if((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0)link.pauseHeartbeat(ms);}
-    private void claimLink(){link.want(canReadLogs()&&(consoleVisible||overlay!=null));homeButton();}
-    private android.view.View home;
-    /** The screen has no navigation bar: whenever another app is in front without the video bar, a small button leads home. */
-    private void homeButton(){
-        boolean want=!consoleVisible&&overlay==null&&Settings.canDrawOverlays(this);android.view.WindowManager wm=getSystemService(android.view.WindowManager.class);
-        if(!want&&home!=null){try{wm.removeView(home);}catch(IllegalArgumentException ignored){}home=null;}
-        if(want&&home==null){
-            ConsoleUi ui=new ConsoleUi(this,this,this::openConsole);android.widget.Button b=ui.button("⌂ CardioLab",true,()->openConsole("home"));b.setContentDescription("Return to CardioLab");
-            android.view.WindowManager.LayoutParams p=new android.view.WindowManager.LayoutParams(ui.dp(132),ui.dp(44),android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,android.graphics.PixelFormat.TRANSLUCENT);
-            p.gravity=android.view.Gravity.BOTTOM|android.view.Gravity.END;p.x=ui.dp(12);p.y=ui.dp(12);p.setTitle("CardioLab home");
-            try{wm.addView(b,p);home=b;}catch(RuntimeException ignored){}
-        }
-    }
+    /**
+     * The link is held for as long as CardioLab runs (FitOS is disabled; the stock-app guard in TreadmillLink still
+     * yields to it). Releasing it whenever the console left the screen stopped the belt when a PiP video was
+     * maximized, because the controller ends the workout when heartbeats stop.
+     */
+    private void claimLink(){link.want(canReadLogs());}
     private void treadmillBytes(byte[] data,int count){
         TreadmillState.Phase before=treadmill.phase;
         link.echo(treadmill.bytes(data,count,SystemClock.elapsedRealtime()));
@@ -169,10 +164,10 @@ public final class ConsoleService extends Service implements SensorEventListener
     }
     @Override public void onSensorChanged(SensorEvent e){lastSample=e.timestamp;detector.add(e.timestamp,e.values[0],e.values[1],e.values[2],session.running||treadmillLive()&&treadmill.phase==TreadmillState.Phase.RUNNING);if(calibrationSamples!=null)calibrationSamples.sample(e);sampleCount++;if(rateStart==0)rateStart=e.timestamp;if(e.timestamp-rateStart>=1_000_000_000L){sensorRate=sampleCount*1e9/(e.timestamp-rateStart);sampleCount=0;rateStart=e.timestamp;}}
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
-    public boolean showOverlay(boolean compact){if(!Settings.canDrawOverlays(this))return false;hideOverlay();overlayCompact=compact;try{overlay=new OverlayControls(this,compact);overlay.show();claimLink();return true;}catch(RuntimeException e){hideOverlay();message="Overlay unavailable: "+e.getClass().getSimpleName();return false;}}
-    public void hideOverlay(){if(overlay!=null){overlay.dismiss();overlay=null;}if(link!=null)claimLink();}
+    public boolean showOverlay(boolean compact){if(!Settings.canDrawOverlays(this))return false;hideOverlay();overlayCompact=compact;try{overlay=new OverlayControls(this,compact);overlay.show();return true;}catch(RuntimeException e){hideOverlay();message="Overlay unavailable: "+e.getClass().getSimpleName();return false;}}
+    public void hideOverlay(){if(overlay!=null){overlay.dismiss();overlay=null;}}
     public void openConsole(String action){hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action));}
     private boolean overlayCompact;
     @Override public void onConfigurationChanged(android.content.res.Configuration c){super.onConfigurationChanged(c);if(overlay!=null)showOverlay(overlayCompact);}
-    @Override public void onDestroy(){if(home!=null){try{getSystemService(android.view.WindowManager.class).removeView(home);}catch(IllegalArgumentException ignored){}home=null;}consoleVisible=true;speaker.stop();link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
+    @Override public void onDestroy(){consoleVisible=true;speaker.stop();link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
 }

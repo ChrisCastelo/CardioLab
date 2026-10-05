@@ -9,39 +9,69 @@ import java.util.UUID;
 /** Foreground BLE connection, serialized callbacks, bounded retries, no vendor commands. */
 @SuppressLint("MissingPermission")
 final class HeartRateClient {
-    interface Listener { void status(String text); void measurement(int bpm); }
+    interface Listener { void status(String text); void measurement(int bpm); default void moved(String address){} }
     private static UUID uuid(String s) { return UUID.fromString("0000"+s+"-0000-1000-8000-00805f9b34fb"); }
     private static final UUID SERVICE=uuid("180d"), MEASUREMENT=uuid("2a37"), CCC=uuid("2902");
     private final Context context;
     private final Listener listener;
     private final Handler main = new Handler(Looper.getMainLooper());
     private BluetoothGatt active;
-    private String address;
+    private String address,name;
+    private android.bluetooth.le.ScanCallback scan;
     private boolean enabled;
     private long lastPacket;
     private int attempt;
     HeartRateClient(Context context, Listener listener) { this.context=context; this.listener=listener; }
-    void start(String target) { stop(); address=target; enabled=true; attempt=0; connect(); }
-    void stop() { enabled=false; main.removeCallbacksAndMessages(null); close(); }
+    void start(String target,String targetName) { stop(); address=target; name=targetName; enabled=true; attempt=0; connect(); }
+    void stop() { enabled=false; main.removeCallbacksAndMessages(null); stopScan(); close(); }
     private void close() {
         BluetoothGatt old=active; active=null;
         if(old!=null) { try { old.disconnect(); old.close(); } catch(SecurityException ignored) {} }
     }
     private void retry(String reason) {
         if(!enabled)return;
-        main.removeCallbacksAndMessages(null); close();
+        main.removeCallbacksAndMessages(null); stopScan(); close();
         int delay=Math.min(30, 3 << Math.min(attempt++,3));
         listener.status(reason+" · retry in "+delay+"s");
         main.postDelayed(this::connect, delay*1000L);
     }
+    /**
+     * Garmin watches advertise heart rate from a different address once a watch workout starts ("Broadcast
+     * During Activity"), so each attempt first scans for the standard Heart Rate service and accepts the saved
+     * address or the same device name; the saved address is then updated. Falls back to a direct connect.
+     */
     private void connect() {
+        if(!enabled)return;
+        BluetoothManager manager=context.getSystemService(BluetoothManager.class);
+        BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+        if(adapter==null||!adapter.isEnabled()){retry("Bluetooth off");return;}
+        android.bluetooth.le.BluetoothLeScanner scanner=adapter.getBluetoothLeScanner();
+        if(scanner==null){connectTo(adapter,address);return;}
+        listener.status("Searching for "+(name==null||name.isEmpty()?"heart-rate broadcast":name)+"…");
+        scan=new android.bluetooth.le.ScanCallback(){@Override public void onScanResult(int type,android.bluetooth.le.ScanResult r){main.post(()->{
+            if(scan!=this||!enabled)return;
+            BluetoothDevice d=r.getDevice();String n=r.getScanRecord()!=null&&r.getScanRecord().getDeviceName()!=null?r.getScanRecord().getDeviceName():d.getName();
+            boolean same=d.getAddress().equals(address)||(name!=null&&!name.isEmpty()&&n!=null&&n.trim().equalsIgnoreCase(name.trim()));
+            if(!same)return;
+            stopScan();if(!d.getAddress().equals(address)){address=d.getAddress();listener.moved(address);}
+            connectTo(adapter,address);
+        });}};
+        try{
+            scanner.startScan(java.util.Collections.singletonList(new android.bluetooth.le.ScanFilter.Builder().setServiceUuid(new android.os.ParcelUuid(SERVICE)).build()),
+                new android.bluetooth.le.ScanSettings.Builder().setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY).build(),scan);
+        }catch(SecurityException|IllegalStateException e){scan=null;connectTo(adapter,address);return;}
+        android.bluetooth.le.ScanCallback expected=scan;
+        main.postDelayed(()->{if(scan==expected){stopScan();connectTo(adapter,address);}},8000);
+    }
+    private void stopScan(){
+        android.bluetooth.le.ScanCallback s=scan;scan=null;if(s==null)return;
+        try{BluetoothAdapter a=BluetoothAdapter.getDefaultAdapter();if(a!=null&&a.getBluetoothLeScanner()!=null)a.getBluetoothLeScanner().stopScan(s);}catch(SecurityException|IllegalStateException ignored){}
+    }
+    private void connectTo(BluetoothAdapter adapter,String target) {
         if(!enabled)return;
         listener.status("Connecting…");
         try {
-            BluetoothManager manager=context.getSystemService(BluetoothManager.class);
-            BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
-            if(adapter==null||!adapter.isEnabled()){retry("Bluetooth off");return;}
-            active=adapter.getRemoteDevice(address).connectGatt(context,false,callback,BluetoothDevice.TRANSPORT_LE);
+            active=adapter.getRemoteDevice(target).connectGatt(context,false,callback,BluetoothDevice.TRANSPORT_LE);
             BluetoothGatt expected=active;
             main.postDelayed(()->{if(active==expected)retry("Connection timed out");},25000);
         } catch(SecurityException e) { enabled=false; close(); listener.status("Nearby Devices permission needed"); }

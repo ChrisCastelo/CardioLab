@@ -163,7 +163,7 @@ public class MainActivity extends Activity implements SensorEventListener {
             if(index==devices.size()+1){startActivity(new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS));return;}
             heartClient.stop();bpm=-1;hrAt=0;heartGraph.clear();
             if(index==devices.size()){deviceName="";deviceAddress="";connection="No heart-rate sensor";}
-            else{BluetoothDevice selected=devices.get(index);deviceAddress=selected.getAddress();deviceName=selected.getName()==null?"Heart-rate sensor":selected.getName();heartClient.start(deviceAddress);}
+            else{BluetoothDevice selected=devices.get(index);deviceAddress=selected.getAddress();deviceName=selected.getName()==null?"Heart-rate sensor":selected.getName();heartClient.start(deviceAddress,deviceName);}
             getPreferences(MODE_PRIVATE).edit().putString("hr_address",deviceAddress).putString("hr_name",deviceName).apply();if(workout!=null)workout.source=deviceName;refresh();
         }).setNegativeButton("Cancel",null).show();
     }
@@ -202,7 +202,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
         refresh();if(foreground)ui.postDelayed(this,200);
     }};
-    @Override protected void onResume(){super.onResume();foreground=true;detector.resetSignal();lastSensorNs=rateAt=rateSamples=0;if(accelerometer==null||!sensors.registerListener(this,accelerometer,10000,0)){accelerometer=null;message="Accelerometer unavailable";}if(!deviceAddress.isEmpty()&&bluetoothPermission())heartClient.start(deviceAddress);ui.removeCallbacks(tick);ui.post(tick);}
+    @Override protected void onResume(){super.onResume();foreground=true;detector.resetSignal();lastSensorNs=rateAt=rateSamples=0;if(accelerometer==null||!sensors.registerListener(this,accelerometer,10000,0)){accelerometer=null;message="Accelerometer unavailable";}if(!deviceAddress.isEmpty()&&bluetoothPermission())heartClient.start(deviceAddress,deviceName);ui.removeCallbacks(tick);ui.post(tick);}
     @Override protected void onPause(){foreground=false;if(workout!=null&&workout.running()||calibrating)pause("Paused · app left the screen");sensors.unregisterListener(this);ui.removeCallbacks(tick);heartClient.stop();bpm=-1;hrAt=0;super.onPause();}
     @Override protected void onDestroy(){heartClient.stop();storage.execute(database::close);storage.shutdown();super.onDestroy();}
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_LONG).show();}

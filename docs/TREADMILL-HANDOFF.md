@@ -45,8 +45,12 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
 - `SpeakerKeeper` reconnects the paired Bluetooth speaker (JBL Flip 5): every 30 s while CardioLab
   runs it asks A2DP to connect the first paired audio device if nothing is connected, and marks it
   auto-connect (hidden Android 9 APIs via reflection). If the speaker refuses, forget and re-pair it.
-- Whenever another app is in front without the video bar (Settings, the Echelon app, a dialog), a
-  floating `⌂ CardioLab` button in the bottom-right corner returns to the console.
+- The treadmill link is held for as long as CardioLab runs. Whenever the console is not in front
+  (SmartTube, a maximized PiP video, Settings), the compact stats bar shows over that app. Releasing the
+  link when the console left the screen used to stop the belt when a PiP video was maximized.
+- Heart rate: each connection attempt scans 8 s for the standard Heart Rate service and accepts the
+  saved address or the same device name (Garmin advertises from another address during a watch
+  activity with "Broadcast During Activity"), saving the new address.
 - Video has two modes, switched in ⚙ (last item). Framed: CardioLab's own player (`VideoActivity`,
   built-in WebView, no sign-in) sits inside the edge panels with `‹ Back` in the header. SmartTube:
   full screen under the compact bar (Back, CardioLab, speed, incline, time, distance, steps, heart
