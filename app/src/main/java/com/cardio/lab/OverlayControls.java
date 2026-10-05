@@ -23,6 +23,13 @@ final class OverlayControls {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT);
         p.gravity=Gravity.TOP|Gravity.LEFT;p.x=x;p.y=y;p.setTitle("CardioLab edge controls");manager.addView(view,p);windows.add(view);
     }
-    void refresh(){if(footerHeight!=ui.footerHeight()){close();show();}else ui.refresh();}
+    private boolean minimized;
+    /** Leaves one small button so the video app's own menus and sign-in are reachable; the treadmill link stays held. */
+    void minimize(){
+        close();minimized=true;
+        android.widget.Button restore=ui.button("Show controls",true,()->{close();minimized=false;show();});
+        add(restore,ui.dp(150),ui.dp(44),ui.dp(8),ui.dp(8));
+    }
+    void refresh(){if(minimized)return;if(footerHeight!=ui.footerHeight()){close();show();}else ui.refresh();}
     void close(){for(View v:windows)try{manager.removeView(v);}catch(IllegalArgumentException ignored){}windows.clear();}
 }
