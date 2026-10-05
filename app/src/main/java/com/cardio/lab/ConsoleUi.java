@@ -33,7 +33,7 @@ final class ConsoleUi {
         LinearLayout left=new LinearLayout(context);left.setGravity(Gravity.CENTER_VERTICAL);
         Button sensors=button("⚙",false,()->actions.open("sensors"));sensors.setContentDescription("Sensors and console settings");left.addView(sensors,new LinearLayout.LayoutParams(dp(44),dp(48)));
         Button audio=button("♫",false,()->actions.open("audio"));audio.setContentDescription("Bluetooth audio settings");LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(dp(44),dp(48));ap.leftMargin=dp(4);left.addView(audio,ap);
-        if(context==service){Button hide=button("Hide",false,()->actions.open("hide"));hide.setContentDescription("Hide controls to use the whole screen");LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(56),dp(48));hp.leftMargin=dp(4);left.addView(hide,hp);}
+        if(context==service){Button back=button("‹ Back",false,()->{if(!NavigationService.back())android.widget.Toast.makeText(context,"Back needs the CardioLab Back button service (adb)",android.widget.Toast.LENGTH_LONG).show();});back.setContentDescription("Back in the video");LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(72),dp(48));hp.leftMargin=dp(4);left.addView(back,hp);}
         LinearLayout copy=col();copy.setPadding(dp(12),0,0,0);title=text("",15,INK);detail=text("",11,MUTED);interval=text("",12,LIME);copy.addView(title);copy.addView(detail);copy.addView(interval);left.addView(copy,new LinearLayout.LayoutParams(0,-2,1));copy.setOnClickListener(v->actions.open("home"));
         int width=context.getResources().getDisplayMetrics().widthPixels;int trackWidth=Math.min(dp(310),width/3);
         root.addView(left,new FrameLayout.LayoutParams((width-trackWidth)/2-dp(20),-1,Gravity.START));

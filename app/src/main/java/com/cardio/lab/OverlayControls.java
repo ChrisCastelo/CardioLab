@@ -7,10 +7,10 @@ import android.widget.*;
 import java.util.*;
 
 /**
- * Controls over the video app. By default a single compact bar at the top centre (live readings, speed
- * down/up, pause/resume) so the browser keeps the whole screen; "Controls" expands to the four opaque edge
- * windows, which leave the video centre touchable. Fewer and smaller overlay windows also keep this
- * screen's GPU-only composition cheap during playback.
+ * Controls over video. Framed: the four opaque edge windows around CardioLab's own framed player
+ * (VideoActivity), which leave its centre touchable. Compact: one slim bar at the top centre over a
+ * full-screen app such as SmartTube (live readings, Back, CardioLab, speed down/up, pause/resume);
+ * a single small overlay also lets this screen compose video in hardware.
  */
 final class OverlayControls {
     private final ConsoleService service;
@@ -18,10 +18,10 @@ final class OverlayControls {
     private final ConsoleUi ui;
     private final ArrayList<View> windows=new ArrayList<>();
     private int footerHeight;
-    private boolean compact=true;
+    private final boolean compact;
     private TextView readings;
     private Button main;
-    OverlayControls(ConsoleService service){this.service=service;manager=service.getSystemService(WindowManager.class);ui=new ConsoleUi(service,service,service::openConsole);}
+    OverlayControls(ConsoleService service,boolean compact){this.service=service;this.compact=compact;manager=service.getSystemService(WindowManager.class);ui=new ConsoleUi(service,service,service::openConsole);}
     void show(){if(compact)showCompact();else showEdges();}
     private void showEdges(){
         Point size=new Point();manager.getDefaultDisplay().getRealSize(size);footerHeight=ui.footerHeight();int top=ui.headerHeight(),rail=ui.railWidth();
@@ -36,9 +36,9 @@ final class OverlayControls {
         for(Button b:new Button[]{back,home}){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(ui.dp(b==back?72:96),ui.dp(32));p.rightMargin=ui.dp(4);bar.addView(b,p);}
         readings=ui.text("",14,ConsoleUi.INK);readings.setPadding(ui.dp(6),0,0,0);bar.addView(readings,new LinearLayout.LayoutParams(0,-2,1));
         Button slower=ui.button("−",false,()->nudge(-.5)),faster=ui.button("+",false,()->nudge(.5));slower.setContentDescription("Slower by 0.5 mph");faster.setContentDescription("Faster by 0.5 mph");
-        main=ui.button("",true,()->service.action("main"));Button expand=ui.button("Controls",false,()->{compact=false;close();showEdges();});
-        for(Button b:new Button[]{slower,main,faster,expand}){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(b==main?ui.dp(96):b==expand?ui.dp(92):ui.dp(48),ui.dp(32));p.leftMargin=ui.dp(4);bar.addView(b,p);}
-        int width=Math.min(size.x-ui.dp(16),ui.dp(820));// Short enough to stay clear of Firefox's address bar below the tab strip.
+        main=ui.button("",true,()->service.action("main"));
+        for(Button b:new Button[]{slower,main,faster}){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(b==main?ui.dp(96):ui.dp(48),ui.dp(32));p.leftMargin=ui.dp(4);bar.addView(b,p);}
+        int width=Math.min(size.x-ui.dp(16),ui.dp(740));// Short enough to stay clear of Firefox's address bar below the tab strip.
         add(bar,width,ui.dp(36),(size.x-width)/2,ui.dp(2));refreshCompact();
     }
     private void nudge(double delta){double mph=service.treadmill.speedMph();if(mph>0)service.speed(Math.round((mph+delta)*2)/2.0);}
@@ -54,8 +54,6 @@ final class OverlayControls {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT);
         p.gravity=Gravity.TOP|Gravity.LEFT;p.x=x;p.y=y;p.setTitle("CardioLab edge controls");manager.addView(view,p);windows.add(view);
     }
-    /** "Hide" in the edge controls returns to the compact bar. */
-    void minimize(){compact=true;close();showCompact();}
     void refresh(){if(compact){if(readings!=null)refreshCompact();return;}if(footerHeight!=ui.footerHeight()){close();showEdges();}else ui.refresh();}
     void close(){for(View v:windows)try{manager.removeView(v);}catch(IllegalArgumentException ignored){}windows.clear();}
     void dismiss(){close();}

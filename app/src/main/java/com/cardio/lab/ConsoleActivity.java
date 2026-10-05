@@ -63,9 +63,9 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
         ConsoleService current=service;
         String calibrationState=getSharedPreferences("MainActivity",MODE_PRIVATE).getString("calibration","Not calibrated on this screen");
         String info=String.format(Locale.US,"Accelerometer: %s · %.0f Hz\nThreshold: %.3f m/s² · %s\nHeart rate: %s\n%s",current.freshSensor()?"Live":"No recent samples",current.sensorRate,current.detector.threshold(),calibrationState,current.deviceName.isEmpty()?"None selected":current.deviceName,current.heartStatus);
-        String[] choices={"Select Garmin / heart-rate sensor","Calibrate vibrations · 2 stages","Bluetooth audio settings","Android settings",current.session.preview?"Turn preview mode off":"Enable preview mode","Sensor lab and saved sessions","Close CardioLab"};
+        String[] choices={"Select Garmin / heart-rate sensor","Calibrate vibrations · 2 stages","Bluetooth audio settings","Android settings",current.session.preview?"Turn preview mode off":"Enable preview mode","Sensor lab and saved sessions","Close CardioLab",framedVideo()?"Video: framed player (no sign-in) → switch to SmartTube":"Video: SmartTube full screen → switch to framed player"};
         new AlertDialog.Builder(this).setTitle("Sensors & console").setItems(choices,(d,which)->{
-            switch(which){case 0:chooseHeart();break;case 1:calibrate();break;case 2:open("audio");break;case 3:startActivity(new Intent(Settings.ACTION_SETTINGS));break;case 4:current.enablePreview(!current.session.preview);break;case 5:current.action("end");stopService(new Intent(this,ConsoleService.class));startActivity(new Intent(this,MainActivity.class));break;case 6:closeConsole();break;}
+            switch(which){case 0:chooseHeart();break;case 1:calibrate();break;case 2:open("audio");break;case 3:startActivity(new Intent(Settings.ACTION_SETTINGS));break;case 4:current.enablePreview(!current.session.preview);break;case 5:current.action("end");stopService(new Intent(this,ConsoleService.class));startActivity(new Intent(this,MainActivity.class));break;case 6:closeConsole();break;case 7:getSharedPreferences("console",MODE_PRIVATE).edit().putBoolean("framed_video",!framedVideo()).apply();toast(framedVideo()?"Open YouTube now uses the framed player":"Open YouTube now uses SmartTube");break;}
         }).setNeutralButton("Live diagnostics",(d,w)->new AlertDialog.Builder(this).setTitle("Live sensor snapshot").setMessage(info+"\n\nGarmin broadcasts directly over standard Bluetooth HR; CardioLab does not use Garmin Connect APIs.\nAudio pairing and reconnection are managed by Android.").setPositiveButton("Close",null).show()).setNegativeButton("Close",null).show();
     }
     private void calibrate(){
@@ -113,10 +113,15 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
     }
     private void youtube(){
         if(!Settings.canDrawOverlays(this)){new AlertDialog.Builder(this).setTitle("Allow workout controls over video").setMessage("Enable ‘Allow display over other apps’ for Cardio Lab, then return and tap Open YouTube.").setPositiveButton("Open permission settings",(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())))).setNegativeButton("Cancel",null).show();return;}
-        if(!service.showOverlay()){toast(service.message);return;}
+        // Framed: CardioLab's own player inside the edge controls (no sign-in). Otherwise the installed
+        // YouTube client (SmartTube) runs full screen under the compact bar.
         Intent video=new Intent(Intent.ACTION_VIEW,Uri.parse("https://m.youtube.com/"));
-        try{startActivity(video);}catch(ActivityNotFoundException e){startActivity(new Intent(this,VideoActivity.class).putExtra("top",ui.headerHeight()).putExtra("bottom",ui.footerHeight()).putExtra("rail",ui.railWidth()));}
+        boolean framed=framedVideo()||video.resolveActivity(getPackageManager())==null;
+        if(!service.showOverlay(!framed)){toast(service.message);return;}
+        if(framed)startActivity(new Intent(this,VideoActivity.class).putExtra("top",ui.headerHeight()).putExtra("bottom",ui.footerHeight()).putExtra("rail",ui.railWidth()));
+        else startActivity(video);
     }
+    private boolean framedVideo(){return getSharedPreferences("console",MODE_PRIVATE).getBoolean("framed_video",false);}
     private void closeConsole(){if(service!=null){service.action("end");service.hideOverlay();}stopService(new Intent(this,ConsoleService.class));finish();}
     @Override public void onBackPressed(){new AlertDialog.Builder(this).setTitle("Close CardioLab?").setMessage("End the preview session and stop the sensor service?").setPositiveButton("Close",(d,w)->closeConsole()).setNegativeButton("Keep open",null).show();}
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_LONG).show();}

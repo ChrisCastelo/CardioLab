@@ -168,9 +168,10 @@ public final class ConsoleService extends Service implements SensorEventListener
     }
     @Override public void onSensorChanged(SensorEvent e){lastSample=e.timestamp;detector.add(e.timestamp,e.values[0],e.values[1],e.values[2],session.running||treadmillLive()&&treadmill.phase==TreadmillState.Phase.RUNNING);if(calibrationSamples!=null)calibrationSamples.sample(e);sampleCount++;if(rateStart==0)rateStart=e.timestamp;if(e.timestamp-rateStart>=1_000_000_000L){sensorRate=sampleCount*1e9/(e.timestamp-rateStart);sampleCount=0;rateStart=e.timestamp;}}
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
-    public boolean showOverlay(){if(!Settings.canDrawOverlays(this))return false;hideOverlay();try{overlay=new OverlayControls(this);overlay.show();claimLink();return true;}catch(RuntimeException e){hideOverlay();message="Overlay unavailable: "+e.getClass().getSimpleName();return false;}}
+    public boolean showOverlay(boolean compact){if(!Settings.canDrawOverlays(this))return false;hideOverlay();overlayCompact=compact;try{overlay=new OverlayControls(this,compact);overlay.show();claimLink();return true;}catch(RuntimeException e){hideOverlay();message="Overlay unavailable: "+e.getClass().getSimpleName();return false;}}
     public void hideOverlay(){if(overlay!=null){overlay.dismiss();overlay=null;}if(link!=null)claimLink();}
-    public void openConsole(String action){if(action.equals("hide")&&overlay!=null){overlay.minimize();return;}hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action.equals("track")?"expandTrack":action));}
-    @Override public void onConfigurationChanged(android.content.res.Configuration c){super.onConfigurationChanged(c);if(overlay!=null)showOverlay();}
+    public void openConsole(String action){hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action.equals("track")?"expandTrack":action));}
+    private boolean overlayCompact;
+    @Override public void onConfigurationChanged(android.content.res.Configuration c){super.onConfigurationChanged(c);if(overlay!=null)showOverlay(overlayCompact);}
     @Override public void onDestroy(){if(home!=null){try{getSystemService(android.view.WindowManager.class).removeView(home);}catch(IllegalArgumentException ignored){}home=null;}consoleVisible=true;link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
 }

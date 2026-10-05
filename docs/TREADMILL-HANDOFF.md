@@ -39,8 +39,9 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
   and `accessibility_enabled 1`; turn off by deleting that setting or in Android Accessibility settings.
 - Whenever another app is in front without the video bar (Settings, the Echelon app, a dialog), a
   floating `⌂ CardioLab` button in the bottom-right corner returns to the console.
-- Video: the video app runs full screen under a compact CardioLab bar (readings, speed −/+, pause);
-  "Controls" expands the full edge panels. Shrinking the display (overscan) was tried and dropped:
+- Video has two modes, switched in ⚙ (last item). Framed: CardioLab's own player (`VideoActivity`,
+  built-in WebView, no sign-in) sits inside the edge panels with `‹ Back` in the header. SmartTube:
+  full screen under the compact bar (Back, CardioLab, readings, speed −/+, pause), signed in. Shrinking the display (overscan) was tried and dropped:
   the browser drew edge to edge and full-screen video overflowed. This build has no freeform windows.
   Every layer is composited by the GPU here (`dumpsys SurfaceFlinger` shows Client), so fewer and
   smaller overlays keep playback smoother.
