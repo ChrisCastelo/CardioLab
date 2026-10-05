@@ -6,8 +6,8 @@ android {
         applicationId 'com.cardio.lab'
         minSdk 26
         targetSdk 34
-        versionCode 22
-        versionName '0.22-speaker'
+        versionCode 23
+        versionName '0.23-speaker-status'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
 }

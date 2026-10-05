@@ -14,7 +14,7 @@ final class ConsoleUi {
     final ConsoleService service;
     final Actions actions;
     final float scale;
-    TextView title,detail,lap,lapDetail,inclineValue,speedValue,interval;
+    TextView title,detail,speakerText,lap,lapDetail,inclineValue,speedValue,interval;
     final TextView[] values=new TextView[6];
     final ArrayList<Button> speedButtons=new ArrayList<>(),inclineButtons=new ArrayList<>();
     Button main,end,workout,switcher;
@@ -35,7 +35,7 @@ final class ConsoleUi {
         Button audio=button("♫",false,()->actions.open("audio"));audio.setContentDescription("Bluetooth audio settings");LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(dp(44),dp(48));ap.leftMargin=dp(4);left.addView(audio,ap);
         if(context!=service){Button video=button("▶ YouTube",true,()->actions.open("youtube"));video.setContentDescription("Open YouTube with the workout bar");LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(112),dp(48));vp.leftMargin=dp(4);left.addView(video,vp);}
         if(context==service){Button back=button("‹ Back",false,()->{if(!NavigationService.back())android.widget.Toast.makeText(context,"Back needs the CardioLab Back button service (adb)",android.widget.Toast.LENGTH_LONG).show();});back.setContentDescription("Back in the video");LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(72),dp(48));hp.leftMargin=dp(4);left.addView(back,hp);}
-        LinearLayout copy=col();copy.setPadding(dp(12),0,0,0);title=text("",15,INK);detail=text("",11,MUTED);interval=text("",12,LIME);copy.addView(title);copy.addView(detail);copy.addView(interval);left.addView(copy,new LinearLayout.LayoutParams(0,-2,1));copy.setOnClickListener(v->actions.open("home"));
+        LinearLayout copy=col();copy.setPadding(dp(12),0,0,0);title=text("",15,INK);detail=text("",11,MUTED);speakerText=text("",11,MUTED);interval=text("",12,LIME);copy.addView(title);copy.addView(detail);copy.addView(speakerText);copy.addView(interval);left.addView(copy,new LinearLayout.LayoutParams(0,-2,1));copy.setOnClickListener(v->actions.open("home"));
         int width=context.getResources().getDisplayMetrics().widthPixels;int trackWidth=Math.min(dp(310),width/3);
         root.addView(left,new FrameLayout.LayoutParams((width-trackWidth)/2-dp(20),-1,Gravity.START));
         LinearLayout track=new LinearLayout(context);track.setGravity(Gravity.CENTER_VERTICAL);track.setPadding(dp(8),dp(4),dp(8),dp(4));track.setBackground(round(SOFT));
@@ -61,6 +61,7 @@ final class ConsoleUi {
     }
     private static void set(TextView view,String value){if(!value.contentEquals(view.getText()))view.setText(value);}
     void refresh(){
+        speakerLine();
         if(service.treadmillLive()){live();return;}
         ConsoleSession s=service.session;
         if(title!=null){set(title,(s.preview?"Preview · ":"")+(s.started?(s.intervals?"Intervals":"Quick start")+(s.running?" · Running":" · Paused"):"Ready when you are"));set(detail,s.preview?"Simulated belt · real sensors":service.treadmillStatus());set(main,s.running?"Pause":s.started?"Resume":"Quick start");end.setVisibility(s.started?View.VISIBLE:View.GONE);workout.setVisibility(s.started?View.GONE:View.VISIBLE);set(lap,s.preview?"Lap "+(s.laps()+1)+" · "+(int)(s.meters%400)+" m":"400 m track");set(lapDetail,s.preview?s.laps()+" laps · preview":"Awaiting treadmill data");mini.meters(s.meters);}
@@ -83,6 +84,11 @@ final class ConsoleUi {
         for(Button b:speedButtons)select(b,t.phase==TreadmillState.Phase.RUNNING&&Math.abs(Integer.parseInt(b.getText().toString())-t.speedMph())<.05);for(Button b:inclineButtons)select(b,known&&Integer.parseInt(b.getText().toString())==t.incline);
         int bpm=service.heartRate()>0?service.heartRate():t.heartRate;
         if(values[0]!=null){String[] readings={known?t.incline+" lvl":"—",String.format(Locale.US,"%.1f mph",t.speedMph()),time(t.elapsed),String.format(Locale.US,"%.2f mi",t.distanceMiles()),service.freshSensor()?String.valueOf(service.detector.steps()):"—",bpm>0?bpm+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
+    }
+    /** Green dot and name while a Bluetooth speaker is connected. */
+    private void speakerLine(){
+        if(speakerText==null)return;String name=service.speaker.connected();
+        String text=name==null?"○ Speaker not connected":"● "+name+" connected";if(!text.contentEquals(speakerText.getText())){speakerText.setText(text);speakerText.setTextColor(name==null?MUTED:0xff7fe08a);}
     }
     private void select(Button b,boolean selected){if(b.isSelected()!=selected){b.setSelected(selected);b.setBackground(round(selected?LIME:SOFT));b.setTextColor(selected?BG:INK);}}
     static String time(double seconds){long s=(long)seconds;return String.format(Locale.US,"%02d:%02d",s/60,s%60);}

@@ -11,8 +11,8 @@ import java.util.List;
 /**
  * Keeps the paired Bluetooth speaker connected. Android 9 only reconnects audio when Bluetooth starts,
  * so a speaker switched on later stays disconnected. While CardioLab runs, this asks the A2DP profile to
- * connect every 30 s to a paired audio device that is not connected yet, and marks it auto-connect.
- * BluetoothA2dp.connect/setPriority are hidden on Android 9 (greylisted), hence reflection.
+ * connect every 30 s to a paired audio device that is not connected yet.
+ * BluetoothA2dp.connect is hidden on Android 9 (greylisted), hence reflection; setPriority is not reachable.
  */
 @SuppressLint("MissingPermission")
 final class SpeakerKeeper {
@@ -41,13 +41,15 @@ final class SpeakerKeeper {
         if(speaker==null){status="No Bluetooth speaker paired";return;}
         if(a2dp.getConnectionState(speaker)!=BluetoothProfile.STATE_DISCONNECTED)return;
         status="Looking for "+name(speaker)+"…";
-        call("setPriority",speaker,1000); // BluetoothProfile.PRIORITY_AUTO_CONNECT
-        call("connect",speaker,null);
+        connect(speaker);
     }
-    private void call(String method,BluetoothDevice device,Integer value){
-        try{Method m=value==null?BluetoothA2dp.class.getMethod(method,BluetoothDevice.class):BluetoothA2dp.class.getMethod(method,BluetoothDevice.class,int.class);
-            if(value==null)m.invoke(a2dp,device);else m.invoke(a2dp,device,value);}
-        catch(ReflectiveOperationException e){Log.w("SpeakerKeeper",method+" unavailable",e);}
+    private void connect(BluetoothDevice device){
+        try{Method m=BluetoothA2dp.class.getMethod("connect",BluetoothDevice.class);m.invoke(a2dp,device);}
+        catch(ReflectiveOperationException e){Log.w("SpeakerKeeper","connect unavailable",e);}
+    }
+    /** Name of the connected speaker, or null; read live so the console updates as soon as it connects. */
+    String connected(){
+        try{if(a2dp==null)return null;List<BluetoothDevice> c=a2dp.getConnectedDevices();return c.isEmpty()?null:name(c.get(0));}catch(RuntimeException e){return null;}
     }
     private static String name(BluetoothDevice d){return d.getName()==null?d.getAddress():d.getName();}
 }
