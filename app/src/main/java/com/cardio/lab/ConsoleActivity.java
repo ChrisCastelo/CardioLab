@@ -77,14 +77,27 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
         });
         current.calibrationSamples=e->{if(calibration!=null)calibration.sample(e.timestamp,e.values[0],e.values[1],e.values[2]);};calibration.show();
     }
-    private boolean bluetoothPermission(){return Build.VERSION.SDK_INT<31||checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED;}
+    /** Android 9 needs location to scan; Android 12+ needs Nearby Devices. */
+    private String[] heartPermissions(){return Build.VERSION.SDK_INT<31?new String[]{Manifest.permission.ACCESS_FINE_LOCATION}:new String[]{Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT};}
+    private boolean bluetoothPermission(){for(String p:heartPermissions())if(checkSelfPermission(p)!=PackageManager.PERMISSION_GRANTED)return false;return true;}
+    /**
+     * Lists bonded LE devices plus anything advertising the standard Heart Rate service (180D).
+     * A Garmin in Broadcast Heart Rate mode needs no Android pairing (which would ask for Garmin Connect).
+     */
     @SuppressLint("MissingPermission") private void chooseHeart(){
-        if(!bluetoothPermission()){requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT},42);return;}
+        if(!bluetoothPermission()){requestPermissions(heartPermissions(),42);return;}
         BluetoothManager manager=getSystemService(BluetoothManager.class);BluetoothAdapter adapter=manager==null?null:manager.getAdapter();if(adapter==null){toast("Bluetooth unavailable");return;}if(!adapter.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));return;}
-        ArrayList<BluetoothDevice> devices=new ArrayList<>();for(BluetoothDevice d:adapter.getBondedDevices())if(d.getType()!=BluetoothDevice.DEVICE_TYPE_CLASSIC)devices.add(d);
-        devices.sort((a,b)->String.valueOf(a.getName()).compareToIgnoreCase(String.valueOf(b.getName())));
-        ArrayList<String> names=new ArrayList<>();for(BluetoothDevice d:devices)names.add(d.getName()==null?d.getAddress():d.getName());names.add("Pair a device in Android settings");names.add("Disconnect heart-rate sensor");
-        new AlertDialog.Builder(this).setTitle("Paired heart-rate devices").setItems(names.toArray(new String[0]),(d,i)->{if(i==devices.size())startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));else if(i>devices.size())service.selectHeart("","");else{BluetoothDevice device=devices.get(i);service.selectHeart(device.getAddress(),device.getName()==null?"Heart-rate sensor":device.getName());}}).setNegativeButton("Close",null).show();
+        LinkedHashMap<String,String> found=new LinkedHashMap<>();for(BluetoothDevice d:adapter.getBondedDevices())if(d.getType()!=BluetoothDevice.DEVICE_TYPE_CLASSIC)found.put(d.getAddress(),d.getName()==null?d.getAddress():d.getName()+" · paired");
+        android.bluetooth.le.BluetoothLeScanner scanner=adapter.getBluetoothLeScanner();
+        android.bluetooth.le.ScanCallback scan=new android.bluetooth.le.ScanCallback(){@Override public void onScanResult(int type,android.bluetooth.le.ScanResult r){BluetoothDevice d=r.getDevice();String name=r.getScanRecord()!=null&&r.getScanRecord().getDeviceName()!=null?r.getScanRecord().getDeviceName():d.getName();if(!found.containsKey(d.getAddress()))found.put(d.getAddress(),(name==null?d.getAddress():name)+" · broadcasting");}};
+        if(scanner!=null)scanner.startScan(Collections.singletonList(new android.bluetooth.le.ScanFilter.Builder().setServiceUuid(android.os.ParcelUuid.fromString("0000180d-0000-1000-8000-00805f9b34fb")).build()),new android.bluetooth.le.ScanSettings.Builder().setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY).build(),scan);
+        AlertDialog searching=new AlertDialog.Builder(this).setTitle("Looking for heart-rate broadcasts…").setMessage("Turn on Broadcast Heart Rate on the watch.").setNegativeButton("Cancel",null).show();
+        root.postDelayed(()->{
+            try{if(scanner!=null)scanner.stopScan(scan);}catch(IllegalStateException ignored){}
+            if(!searching.isShowing()||service==null)return;searching.dismiss();
+            ArrayList<String> addresses=new ArrayList<>(found.keySet());ArrayList<String> names=new ArrayList<>(found.values());names.add("Search again");names.add("Disconnect heart-rate sensor");
+            new AlertDialog.Builder(this).setTitle(addresses.isEmpty()?"No heart-rate sensor found":"Heart-rate sensors").setItems(names.toArray(new String[0]),(d,i)->{if(i==addresses.size())chooseHeart();else if(i>addresses.size())service.selectHeart("","");else service.selectHeart(addresses.get(i),found.get(addresses.get(i)).replaceAll(" · (paired|broadcasting)$",""));}).setNegativeButton("Close",null).show();
+        },6000);
     }
     @Override public void onRequestPermissionsResult(int code,String[] permissions,int[] results){super.onRequestPermissionsResult(code,permissions,results);if(code==42&&bluetoothPermission()&&service!=null)chooseHeart();}
     private EditText number(LinearLayout parent,String name,double value){parent.addView(ui.text(name,14,ConsoleUi.MUTED));EditText field=new EditText(this);field.setSingleLine(true);field.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);field.setText(String.valueOf(value));parent.addView(field);return field;}
