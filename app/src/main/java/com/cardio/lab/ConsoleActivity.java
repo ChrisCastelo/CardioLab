@@ -17,7 +17,7 @@ import java.util.*;
 public final class ConsoleActivity extends Activity implements ConsoleService.Listener {
     private ConsoleService service;
     private ConsoleUi ui;
-    private boolean bound,visible,track;
+    private boolean bound,visible;
     private int footerHeight;
     private LinearLayout root;
     private View footer;
@@ -27,24 +27,19 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
         public void onServiceConnected(ComponentName name,IBinder binder){service=((ConsoleService.LocalBinder)binder).service();service.hideOverlay();service.consoleVisible(true);build();service.listen(ConsoleActivity.this);handleIntent();}
         public void onServiceDisconnected(ComponentName name){service=null;}
     };
-    @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(ConsoleUi.BG);getWindow().setNavigationBarColor(ConsoleUi.BG);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);if(state!=null)track=state.getBoolean("track");}
+    @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(ConsoleUi.BG);getWindow().setNavigationBarColor(ConsoleUi.BG);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);}
     @Override protected void onStart(){super.onStart();visible=true;Intent intent=new Intent(this,ConsoleService.class);startForegroundService(intent);bound=bindService(intent,connection,BIND_AUTO_CREATE);}
     @Override protected void onResume(){super.onResume();getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);if(service!=null)service.hideOverlay();}
     @Override protected void onPause(){if(calibration!=null)calibration.cancel();super.onPause();}
     @Override protected void onStop(){visible=false;if(service!=null){service.unlisten(this);service.consoleVisible(false);}if(bound){unbindService(connection);bound=false;}service=null;super.onStop();}
-    @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("track",track);super.onSaveInstanceState(out);}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(service!=null)handleIntent();}
     private void handleIntent(){String action=getIntent().getStringExtra("action");getIntent().removeExtra("action");if(action!=null)open(action);}
     private void build(){
         ui=new ConsoleUi(this,service,this::open);root=ui.col();root.setBackgroundColor(ConsoleUi.BG);root.addView(ui.header(),new LinearLayout.LayoutParams(-1,ui.headerHeight()));
         LinearLayout stage=new LinearLayout(this);stage.addView(ui.rail(false),new LinearLayout.LayoutParams(ui.railWidth(),-1));
         LinearLayout center=ui.col();center.setGravity(Gravity.CENTER);center.setPadding(ui.dp(28),ui.dp(16),ui.dp(28),ui.dp(16));
-        if(track){ui.large=new TrackView(this);center.addView(ui.large,new LinearLayout.LayoutParams(-1,0,1));TextView description=ui.text("400 m track · simulated distance in preview",16,ConsoleUi.MUTED);description.setGravity(Gravity.CENTER);center.addView(description);center.addView(ui.button("Back to YouTube",false,()->{track=false;build();}),new LinearLayout.LayoutParams(ui.dp(220),ui.dp(52)));}
-        else{
-            TextView wordmark=ui.text("YouTube",40,ConsoleUi.INK);wordmark.setGravity(Gravity.CENTER);center.addView(wordmark);TextView description=ui.text("Your video. Your workout.",20,ConsoleUi.MUTED);LinearLayout.LayoutParams desc=new LinearLayout.LayoutParams(-2,-2);desc.topMargin=ui.dp(10);desc.bottomMargin=ui.dp(30);center.addView(description,desc);
-            center.addView(ui.button("Open YouTube",true,this::youtube),new LinearLayout.LayoutParams(ui.dp(250),ui.dp(60)));
-            TextView sub=ui.text("Workout controls stay around the video",13,ConsoleUi.MUTED);sub.setGravity(Gravity.CENTER);sub.setPadding(0,ui.dp(18),0,0);center.addView(sub);
-        }
+        // The 400 m track is the main view; YouTube is an add-on opened from the header.
+        ui.large=new TrackView(this);center.addView(ui.large,new LinearLayout.LayoutParams(-1,0,1));TextView description=ui.text("400 m track",16,ConsoleUi.MUTED);description.setGravity(Gravity.CENTER);center.addView(description);
         status=ui.text(service.message,12,ConsoleUi.MUTED);status.setGravity(Gravity.CENTER);status.setPadding(0,ui.dp(20),0,0);center.addView(status);
         stage.addView(center,new LinearLayout.LayoutParams(0,-1,1));stage.addView(ui.rail(true),new LinearLayout.LayoutParams(ui.railWidth(),-1));root.addView(stage,new LinearLayout.LayoutParams(-1,0,1));footer=ui.footer();footerHeight=ui.footerHeight();root.addView(footer,new LinearLayout.LayoutParams(-1,footerHeight));setContentView(root);ui.refresh();
     }
@@ -52,8 +47,8 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
     private void open(String action){if(service==null)return;switch(action){
         case "home":break;
         case "pauseHeartbeat":service.pauseHeartbeat(15000);break;
-        case "track":track=!track;build();break;
-        case "expandTrack":track=true;build();break;
+        case "track":case "expandTrack":break;
+        case "youtube":youtube();break;
         case "sensors":settings();break;
         case "audio":startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));break;
         case "workout":workout();break;

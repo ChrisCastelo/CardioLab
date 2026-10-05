@@ -43,7 +43,9 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
   floating `⌂ CardioLab` button in the bottom-right corner returns to the console.
 - Video has two modes, switched in ⚙ (last item). Framed: CardioLab's own player (`VideoActivity`,
   built-in WebView, no sign-in) sits inside the edge panels with `‹ Back` in the header. SmartTube:
-  full screen under the compact bar (Back, CardioLab, readings, speed −/+, pause), signed in. Shrinking the display (overscan) was tried and dropped:
+  full screen under the compact bar (Back, CardioLab, speed, incline, time, distance, steps, heart
+  rate, interval and its switch while intervals run, pause/resume), signed in. The console's main
+  view is the 400 m track; `▶ YouTube` in its header opens the video. Shrinking the display (overscan) was tried and dropped:
   the browser drew edge to edge and full-screen video overflowed. This build has no freeform windows.
   Every layer is composited by the GPU here (`dumpsys SurfaceFlinger` shows Client), so fewer and
   smaller overlays keep playback smoother.
