@@ -145,7 +145,8 @@ public final class ConsoleService extends Service implements SensorEventListener
     }
     public String treadmillStatus(){return treadmillLive()?"Live from treadmill · "+treadmill.label():!canReadLogs()?"Grant READ_LOGS over adb so CardioLab can hand off from the stock app":link.status;}
     private void advance(){long now=SystemClock.elapsedRealtime();if(!treadmillLive())session.advance((now-lastTick)/1000.0);lastTick=now;}
-    private final Runnable tick=new Runnable(){public void run(){advance();if(treadmill.confirmFailed(SystemClock.elapsedRealtime())){treadmill.pendingKind=null;speedAfterStart=0;message="The treadmill did not confirm "+commandLabel+" · the screen shows what the treadmill reports";}else if(treadmillLive()&&treadmill.pendingKind==null&&message.startsWith("Sent "))message="Treadmill confirmed "+commandLabel;
+    private final Runnable tick=new Runnable(){public void run(){advance();if(treadmill.confirmFailed(SystemClock.elapsedRealtime())){treadmill.pendingKind=null;speedAfterStart=0;message="The treadmill did not confirm "+commandLabel+" · the screen shows what the treadmill reports";}// A confirmed command needs no lasting note: the readings show the result, and the speed keeps changing.
+            else if(treadmillLive()&&treadmill.pendingKind==null&&message.startsWith("Sent "))message="";
             if(queuedSpeed>0&&treadmill.phase==TreadmillState.Phase.RUNNING&&!treadmill.confirmPending(SystemClock.elapsedRealtime())){double target=queuedSpeed;queuedSpeed=0;command(now->treadmill.setSpeed(target,now),String.format(Locale.US,"interval %.1f mph",target));}if(SystemClock.elapsedRealtime()-lastSave>1000)save();notifyUi();main.postDelayed(this,200);}};
     private void save(){
         lastSave=SystemClock.elapsedRealtime();ConsoleSession s=session;

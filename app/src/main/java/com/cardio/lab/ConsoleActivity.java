@@ -61,7 +61,7 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
         if(!beltIdle()){lastActive=now;if(asleep)wake();}
         else if(!asleep&&now-lastActive>SLEEP_MS)sleep();
     }
-    @Override public void changed(){if(!visible||ui==null||service==null)return;sleepCheck();ui.refresh();String note=service.treadmillLive()&&service.message.startsWith("Controller not verified")?"Treadmill link active · physical Stop and safety key always work":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
+    @Override public void changed(){if(!visible||ui==null||service==null)return;sleepCheck();ui.refresh();String note=service.treadmillLive()&&(service.message.isEmpty()||service.message.startsWith("Controller not verified"))?"Treadmill link active · physical Stop and safety key always work":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
     private void open(String action){if(service==null)return;switch(action){
         case "home":if(asleep)wake();break;
         case "sleepNow":sleep();break;

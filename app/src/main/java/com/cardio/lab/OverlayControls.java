@@ -48,7 +48,7 @@ final class OverlayControls {
     private void refreshCompact(){
         TreadmillState t=service.treadmill;ConsoleSession session=service.session;boolean live=service.treadmillLive();int bpm=service.heartRate()>0?service.heartRate():t.heartRate;
         boolean intervals=session.intervals&&session.started;
-        String[] values={live?String.format(Locale.US,"%.1f mph",t.speedMph()):"—",live&&t.incline!=Integer.MIN_VALUE?String.valueOf(t.incline):"—",live?ConsoleUi.time(t.elapsed):"—",live?String.format(Locale.US,"%.2f mi",t.distanceMiles()):"—",
+        String[] values={live?String.format(Locale.US,"%.1f mph",t.speedMph()):"—",live&&t.incline!=Integer.MIN_VALUE?String.valueOf(t.incline):"—",live?ConsoleUi.time(t.elapsed):"—",live?String.format(Locale.US,"%.2f km",t.meters()/1000):"—",
             service.freshSensor()?String.valueOf(service.detector.steps()):"—",bpm>0?String.valueOf(bpm):"—",
             intervals?(session.phase==0?"A":"B")+" · "+(session.mode.equals("manual")?"manual":session.mode.equals("time")?(int)Math.ceil((session.phase==0?session.limitA:session.limitB)-session.phaseElapsed)+" s":(int)Math.ceil((session.phase==0?session.limitA:session.limitB)-session.phaseMeters)+" m"):""};
         for(int i=0;i<stats.length;i++)if(!values[i].contentEquals(stats[i].getText()))stats[i].setText(values[i]);
