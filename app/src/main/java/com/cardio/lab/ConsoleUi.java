@@ -68,7 +68,7 @@ final class ConsoleUi {
         if(large!=null)large.meters(s.meters);
         if(speedValue!=null)set(speedValue,s.preview?String.format(Locale.US,"%.1f",s.speed):"—");if(inclineValue!=null)set(inclineValue,s.preview?String.valueOf(s.incline):"—");
         for(Button b:speedButtons)select(b,s.preview&&Integer.parseInt(b.getText().toString())==s.speed);for(Button b:inclineButtons)select(b,s.preview&&Integer.parseInt(b.getText().toString())==s.incline);
-        if(values[0]!=null){String[] readings={s.preview?s.incline+" lvl":"—",s.preview?String.format(Locale.US,"%.1f mph",s.running?s.speed:0):"—",time(s.elapsed),s.preview?String.format(Locale.US,"%.2f km",s.meters/1000):"—",service.freshSensor()?String.valueOf(service.detector.steps()):"—",service.heartRate()>0?service.heartRate()+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
+        if(values[0]!=null){String[] readings={s.preview?s.incline+" lvl":"—",s.preview?String.format(Locale.US,"%.1f mph",s.running?s.speed:0):"—",time(s.elapsed),s.preview?String.format(Locale.US,"%d m",Math.round(s.meters)):"—",service.freshSensor()?String.valueOf(service.detector.steps()):"—",service.heartRate()>0?service.heartRate()+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
         intervals(s);
     }
     private void intervals(ConsoleSession s){
@@ -83,7 +83,7 @@ final class ConsoleUi {
         if(speedValue!=null)set(speedValue,String.format(Locale.US,"%.1f",t.speedMph()));if(inclineValue!=null)set(inclineValue,known?String.valueOf(t.incline):"—");
         for(Button b:speedButtons)select(b,t.phase==TreadmillState.Phase.RUNNING&&Math.abs(Integer.parseInt(b.getText().toString())-t.speedMph())<.05);for(Button b:inclineButtons)select(b,known&&Integer.parseInt(b.getText().toString())==t.incline);
         int bpm=service.heartRate()>0?service.heartRate():t.heartRate;
-        if(values[0]!=null){String[] readings={known?t.incline+" lvl":"—",String.format(Locale.US,"%.1f mph",t.speedMph()),time(t.elapsed),String.format(Locale.US,"%.2f km",t.meters()/1000),service.freshSensor()?String.valueOf(service.detector.steps()):"—",bpm>0?bpm+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
+        if(values[0]!=null){String[] readings={known?t.incline+" lvl":"—",String.format(Locale.US,"%.1f mph",t.speedMph()),time(t.elapsed),String.format(Locale.US,"%d m",Math.round(t.meters())),service.freshSensor()?String.valueOf(service.detector.steps()):"—",bpm>0?bpm+" bpm":"—"};for(int i=0;i<6;i++)set(values[i],readings[i]);}
     }
     /** Green dot and name while a Bluetooth speaker is connected. */
     private void speakerLine(){
