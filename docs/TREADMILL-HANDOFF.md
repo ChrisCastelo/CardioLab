@@ -30,10 +30,13 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
   verified twice by reboot.
 - The power key does not sleep the screen while CardioLab is in front (it keeps the screen on).
 - Development permissions granted over adb: `READ_LOGS` (detects the stock app still using the
-  port), `WRITE_SECURE_SETTINGS` (the video overlay sets display overscan so the browser fits
-  between the edge controls), `ACCESS_FINE_LOCATION` (BLE heart-rate scan on Android 9) and the
-  `SYSTEM_ALERT_WINDOW` app-op. They must be granted again after a reinstall. If the screen is
-  ever left inset, `adb shell wm overscan reset` restores it; CardioLab also resets it on start.
+  port), `WRITE_SECURE_SETTINGS` (only to reset the display overscan an earlier build used), `ACCESS_FINE_LOCATION` (BLE heart-rate scan on Android 9) and the
+  `SYSTEM_ALERT_WINDOW` app-op. They must be granted again after a reinstall.
+- Video: Firefox runs full screen under a compact CardioLab bar (readings, speed −/+, pause);
+  "Controls" expands the full edge panels. Shrinking the display (overscan) was tried and dropped:
+  Firefox draws edge to edge and full-screen video overflowed. This build has no freeform windows.
+  Every layer is composited by the GPU here (`dumpsys SurfaceFlinger` shows Client), so fewer and
+  smaller overlays keep playback smoother.
 - Firefox 157 (Mozilla's armeabi-v7a APK) is installed for YouTube; the built-in WebView (66)
   cannot sign in to Google. The Garmin heart rate is read from its Broadcast Heart Rate mode
   without Android pairing. Step calibration on this screen: 46 counted, 46 detected.

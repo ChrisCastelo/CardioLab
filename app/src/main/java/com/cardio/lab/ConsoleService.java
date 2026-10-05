@@ -43,7 +43,7 @@ public final class ConsoleService extends Service implements SensorEventListener
             .setContentText("Treadmill link active · physical Stop and safety key always work").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,"Close console",stop).build()).build();
         startForeground(41,n);
         restore();
-        OverlayControls.overscan("reset"); // in case an earlier process died with the video layout applied
+        OverlayControls.resetOverscan();
         sensors=getSystemService(SensorManager.class);Sensor accelerometer=sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         detector.setThreshold(getSharedPreferences("MainActivity",MODE_PRIVATE).getFloat("threshold",.12f));
         sensorAvailable=accelerometer!=null&&sensors.registerListener(this,accelerometer,10000,0);

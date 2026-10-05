@@ -3,50 +3,61 @@ package com.cardio.lab;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.view.*;
+import android.widget.*;
 import java.util.*;
 
 /**
- * Separate opaque edge windows leave the video center genuinely touchable. While they show, the display's
- * overscan is set to their size so the video app lays itself out in the center instead of underneath them
- * (needs WRITE_SECURE_SETTINGS, granted over adb; without it the app simply stays full screen).
+ * Controls over the video app. By default a single compact bar at the top centre (live readings, speed
+ * down/up, pause/resume) so the browser keeps the whole screen; "Controls" expands to the four opaque edge
+ * windows, which leave the video centre touchable. Fewer and smaller overlay windows also keep this
+ * screen's GPU-only composition cheap during playback.
  */
 final class OverlayControls {
     private final ConsoleService service;
     private final WindowManager manager;
     private final ConsoleUi ui;
     private final ArrayList<View> windows=new ArrayList<>();
-    private int footerHeight,offsetX,offsetY;
+    private int footerHeight;
+    private boolean compact=true;
+    private TextView readings;
+    private Button main;
     OverlayControls(ConsoleService service){this.service=service;manager=service.getSystemService(WindowManager.class);ui=new ConsoleUi(service,service,service::openConsole);}
-    void show(){
+    void show(){if(compact)showCompact();else showEdges();}
+    private void showEdges(){
         Point size=new Point();manager.getDefaultDisplay().getRealSize(size);footerHeight=ui.footerHeight();int top=ui.headerHeight(),rail=ui.railWidth();
-        // Window coordinates start inside the overscan, so the edge windows are placed at negative offsets.
-        boolean fit=service.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS")==android.content.pm.PackageManager.PERMISSION_GRANTED&&overscanNow(rail+","+top+","+rail+","+footerHeight);
-        offsetX=fit?-rail:0;offsetY=fit?-top:0;
         add(ui.header(),size.x,top,0,0);add(ui.footer(),size.x,footerHeight,0,size.y-footerHeight);
         add(ui.rail(false),rail,size.y-top-footerHeight,0,top);add(ui.rail(true),rail,size.y-top-footerHeight,size.x-rail,top);ui.refresh();
     }
+    private void showCompact(){
+        Point size=new Point();manager.getDefaultDisplay().getRealSize(size);
+        LinearLayout bar=new LinearLayout(service);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setBackground(ui.round(ConsoleUi.PANEL));bar.setPadding(ui.dp(10),ui.dp(2),ui.dp(3),ui.dp(2));
+        readings=ui.text("",14,ConsoleUi.INK);bar.addView(readings,new LinearLayout.LayoutParams(0,-2,1));
+        Button slower=ui.button("−",false,()->nudge(-.5)),faster=ui.button("+",false,()->nudge(.5));slower.setContentDescription("Slower by 0.5 mph");faster.setContentDescription("Faster by 0.5 mph");
+        main=ui.button("",true,()->service.action("main"));Button expand=ui.button("Controls",false,()->{compact=false;close();showEdges();});
+        for(Button b:new Button[]{slower,main,faster,expand}){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(b==main?ui.dp(96):b==expand?ui.dp(92):ui.dp(48),ui.dp(32));p.leftMargin=ui.dp(4);bar.addView(b,p);}
+        int width=Math.min(size.x-ui.dp(16),ui.dp(640));// Short enough to stay clear of Firefox's address bar below the tab strip.
+        add(bar,width,ui.dp(36),(size.x-width)/2,ui.dp(2));refreshCompact();
+    }
+    private void nudge(double delta){double mph=service.treadmill.speedMph();if(mph>0)service.speed(Math.round((mph+delta)*2)/2.0);}
+    private void refreshCompact(){
+        TreadmillState t=service.treadmill;boolean live=service.treadmillLive();int bpm=service.heartRate()>0?service.heartRate():t.heartRate;
+        String text=live?String.format(Locale.US,"%.1f mph · %s · %.2f mi%s",t.speedMph(),ConsoleUi.time(t.elapsed),t.distanceMiles(),bpm>0?" · ♥ "+bpm:""):"Treadmill not connected";
+        if(!text.contentEquals(readings.getText()))readings.setText(text);
+        String label=t.phase==TreadmillState.Phase.RUNNING?"Pause":t.phase==TreadmillState.Phase.PAUSED?"Resume":t.phase==TreadmillState.Phase.COUNTDOWN?"Starting…":"Start";
+        if(!label.contentEquals(main.getText()))main.setText(label);
+    }
     private void add(View view,int width,int height,int x,int y){
         WindowManager.LayoutParams p=new WindowManager.LayoutParams(width,Math.max(1,height),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN|WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
-        p.gravity=Gravity.TOP|Gravity.LEFT;p.x=x+offsetX;p.y=y+offsetY;p.setTitle("CardioLab edge controls");manager.addView(view,p);windows.add(view);
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT);
+        p.gravity=Gravity.TOP|Gravity.LEFT;p.x=x;p.y=y;p.setTitle("CardioLab edge controls");manager.addView(view,p);windows.add(view);
     }
-    private boolean minimized;
-    /** Leaves one small button so the video app's own menus and sign-in are reachable; the treadmill link stays held. */
-    void minimize(){
-        close();overscanNow("reset");offsetX=offsetY=0;minimized=true;
-        android.widget.Button restore=ui.button("Show controls",true,()->{close();minimized=false;show();});
-        add(restore,ui.dp(150),ui.dp(44),ui.dp(8),ui.dp(8));
-    }
-    void refresh(){if(minimized)return;if(footerHeight!=ui.footerHeight()){close();show();}else ui.refresh();}
+    /** "Hide" in the edge controls returns to the compact bar. */
+    void minimize(){compact=true;close();showCompact();}
+    void refresh(){if(compact){if(readings!=null)refreshCompact();return;}if(footerHeight!=ui.footerHeight()){close();showEdges();}else ui.refresh();}
     void close(){for(View v:windows)try{manager.removeView(v);}catch(IllegalArgumentException ignored){}windows.clear();}
-    /** Removes the controls and gives the whole display back. */
-    void dismiss(){close();overscan("reset");}
-    private static final java.util.concurrent.ExecutorService OVERSCAN=java.util.concurrent.Executors.newSingleThreadExecutor();
-    /** Serialized so a reset and the next set cannot apply out of order. */
-    private static boolean overscanNow(String value){
-        try{return OVERSCAN.submit(()->new ProcessBuilder("wm","overscan",value).redirectErrorStream(true).start().waitFor()==0).get();}catch(Exception e){return false;}
-    }
-    static void overscan(String value){
-        OVERSCAN.execute(()->{try{new ProcessBuilder("wm","overscan",value).redirectErrorStream(true).start().waitFor();}catch(java.io.IOException|InterruptedException ignored){}});
+    void dismiss(){close();}
+    /** Undoes the display overscan an earlier build (0.12) used to fit the video app; safe to repeat. */
+    static void resetOverscan(){
+        new Thread(()->{try{new ProcessBuilder("wm","overscan","reset").redirectErrorStream(true).start().waitFor();}catch(java.io.IOException|InterruptedException ignored){}},"overscan-reset").start();
     }
 }
