@@ -170,7 +170,7 @@ public final class ConsoleService extends Service implements SensorEventListener
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
     public boolean showOverlay(boolean compact){if(!Settings.canDrawOverlays(this))return false;hideOverlay();overlayCompact=compact;try{overlay=new OverlayControls(this,compact);overlay.show();claimLink();return true;}catch(RuntimeException e){hideOverlay();message="Overlay unavailable: "+e.getClass().getSimpleName();return false;}}
     public void hideOverlay(){if(overlay!=null){overlay.dismiss();overlay=null;}if(link!=null)claimLink();}
-    public void openConsole(String action){hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action.equals("track")?"expandTrack":action));}
+    public void openConsole(String action){hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action));}
     private boolean overlayCompact;
     @Override public void onConfigurationChanged(android.content.res.Configuration c){super.onConfigurationChanged(c);if(overlay!=null)showOverlay(overlayCompact);}
     @Override public void onDestroy(){if(home!=null){try{getSystemService(android.view.WindowManager.class).removeView(home);}catch(IllegalArgumentException ignored){}home=null;}consoleVisible=true;link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}

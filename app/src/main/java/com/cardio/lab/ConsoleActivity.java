@@ -47,7 +47,6 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
     private void open(String action){if(service==null)return;switch(action){
         case "home":break;
         case "pauseHeartbeat":service.pauseHeartbeat(15000);break;
-        case "track":case "expandTrack":break;
         case "youtube":youtube();break;
         case "sensors":settings();break;
         case "audio":startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));break;
