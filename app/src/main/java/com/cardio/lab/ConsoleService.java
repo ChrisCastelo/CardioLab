@@ -23,6 +23,7 @@ public final class ConsoleService extends Service implements SensorEventListener
     private HeartRateClient heart;
     private OverlayControls overlay;
     private TreadmillLink link;
+    final SpeakerKeeper speaker=new SpeakerKeeper(this);
     private boolean consoleVisible;
     private long lastTick,lastSave,hrAt,rateStart,sampleCount,lastSample;
     private int bpm;
@@ -51,7 +52,7 @@ public final class ConsoleService extends Service implements SensorEventListener
             public void status(String value){heartStatus=value;if(!value.startsWith("Live")){bpm=0;hrAt=0;}notifyUi();}
             public void measurement(int value){bpm=value;hrAt=SystemClock.elapsedRealtime();notifyUi();}
         });
-        reconnectHeart();lastTick=SystemClock.elapsedRealtime();main.post(tick);
+        reconnectHeart();speaker.start();lastTick=SystemClock.elapsedRealtime();main.post(tick);
         link=new TreadmillLink(new TreadmillLink.Listener(){
             public void received(byte[] data,int count){treadmillBytes(data,count);}
             public void changed(String status){notifyUi();}
@@ -173,5 +174,5 @@ public final class ConsoleService extends Service implements SensorEventListener
     public void openConsole(String action){hideOverlay();startActivity(new Intent(this,ConsoleActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("action",action));}
     private boolean overlayCompact;
     @Override public void onConfigurationChanged(android.content.res.Configuration c){super.onConfigurationChanged(c);if(overlay!=null)showOverlay(overlayCompact);}
-    @Override public void onDestroy(){if(home!=null){try{getSystemService(android.view.WindowManager.class).removeView(home);}catch(IllegalArgumentException ignored){}home=null;}consoleVisible=true;link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
+    @Override public void onDestroy(){if(home!=null){try{getSystemService(android.view.WindowManager.class).removeView(home);}catch(IllegalArgumentException ignored){}home=null;}consoleVisible=true;speaker.stop();link.close();advance();session.pause();save();hideOverlay();main.removeCallbacksAndMessages(null);sensors.unregisterListener(this);heart.stop();listeners.clear();super.onDestroy();}
 }

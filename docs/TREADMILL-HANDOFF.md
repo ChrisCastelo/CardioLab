@@ -39,6 +39,9 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
   and `accessibility_enabled 1`; turn off by deleting that setting or in Android Accessibility settings.
   Do not `am force-stop com.cardio.lab`: Android then drops the service from the enabled list, and
   on this firmware it only binds again after re-enabling it and rebooting. `adb install -r` is fine.
+- `SpeakerKeeper` reconnects the paired Bluetooth speaker (JBL Flip 5): every 30 s while CardioLab
+  runs it asks A2DP to connect the first paired audio device if nothing is connected, and marks it
+  auto-connect (hidden Android 9 APIs via reflection). If the speaker refuses, forget and re-pair it.
 - Whenever another app is in front without the video bar (Settings, the Echelon app, a dialog), a
   floating `⌂ CardioLab` button in the bottom-right corner returns to the console.
 - Video has two modes, switched in ⚙ (last item). Framed: CardioLab's own player (`VideoActivity`,
