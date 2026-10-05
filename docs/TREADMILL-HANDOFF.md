@@ -39,6 +39,9 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
   and `accessibility_enabled 1`; turn off by deleting that setting or in Android Accessibility settings.
   Do not `am force-stop com.cardio.lab`: Android then drops the service from the enabled list, and
   on this firmware it only binds again after re-enabling it and rebooting. `adb install -r` is fine.
+- Sleep: after 10 minutes with the belt stopped and no touches the console turns black with the
+  window backlight at 0, while staying in front so the treadmill link and heartbeat continue. A tap or
+  any belt state change (physical Start) wakes it. Test hook: `am start -n com.cardio.lab/.ConsoleActivity --es action sleepNow`.
 - `SpeakerKeeper` reconnects the paired Bluetooth speaker (JBL Flip 5): every 30 s while CardioLab
   runs it asks A2DP to connect the first paired audio device if nothing is connected, and marks it
   auto-connect (hidden Android 9 APIs via reflection). If the speaker refuses, forget and re-pair it.

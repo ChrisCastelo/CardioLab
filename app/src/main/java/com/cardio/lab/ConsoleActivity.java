@@ -41,11 +41,30 @@ public final class ConsoleActivity extends Activity implements ConsoleService.Li
         // The 400 m track is the main view; YouTube is an add-on opened from the header.
         ui.large=new TrackView(this);center.addView(ui.large,new LinearLayout.LayoutParams(-1,0,1));TextView description=ui.text("400 m track",16,ConsoleUi.MUTED);description.setGravity(Gravity.CENTER);center.addView(description);
         status=ui.text(service.message,12,ConsoleUi.MUTED);status.setGravity(Gravity.CENTER);status.setPadding(0,ui.dp(20),0,0);center.addView(status);
-        stage.addView(center,new LinearLayout.LayoutParams(0,-1,1));stage.addView(ui.rail(true),new LinearLayout.LayoutParams(ui.railWidth(),-1));root.addView(stage,new LinearLayout.LayoutParams(-1,0,1));footer=ui.footer();footerHeight=ui.footerHeight();root.addView(footer,new LinearLayout.LayoutParams(-1,footerHeight));setContentView(root);ui.refresh();
+        stage.addView(center,new LinearLayout.LayoutParams(0,-1,1));stage.addView(ui.rail(true),new LinearLayout.LayoutParams(ui.railWidth(),-1));root.addView(stage,new LinearLayout.LayoutParams(-1,0,1));footer=ui.footer();footerHeight=ui.footerHeight();root.addView(footer,new LinearLayout.LayoutParams(-1,footerHeight));
+        FrameLayout frame=new FrameLayout(this);frame.addView(root);cover=new View(this);cover.setBackgroundColor(0xff000000);cover.setVisibility(View.GONE);cover.setClickable(true);cover.setOnClickListener(v->wake());frame.addView(cover,new FrameLayout.LayoutParams(-1,-1));
+        setContentView(frame);if(asleep)sleep();ui.refresh();
     }
-    @Override public void changed(){if(!visible||ui==null||service==null)return;ui.refresh();String note=service.treadmillLive()&&service.message.startsWith("Controller not verified")?"Treadmill link active · physical Stop and safety key always work":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
+    /** Sleep: after SLEEP_MS with the belt idle and no touches, the console goes black with the backlight at its minimum.
+     *  The activity stays in front, so the treadmill link and heartbeat continue: a tap, or the physical Start key
+     *  (reported by the controller), wakes it. Any belt state other than stopped keeps it awake. */
+    private static final long SLEEP_MS=10*60_000L;
+    private View cover;
+    private boolean asleep;
+    private long lastActive=SystemClock.elapsedRealtime();
+    @Override public boolean dispatchTouchEvent(MotionEvent e){lastActive=SystemClock.elapsedRealtime();return super.dispatchTouchEvent(e);}
+    private boolean beltIdle(){TreadmillState.Phase p=service.treadmill.phase;return !service.treadmillLive()||p==TreadmillState.Phase.STOPPED||p==TreadmillState.Phase.UNKNOWN||p==TreadmillState.Phase.SAFETY_KEY_OUT;}
+    private void sleep(){asleep=true;if(cover!=null)cover.setVisibility(View.VISIBLE);WindowManager.LayoutParams a=getWindow().getAttributes();a.screenBrightness=0f;getWindow().setAttributes(a);}
+    private void wake(){asleep=false;lastActive=SystemClock.elapsedRealtime();if(cover!=null)cover.setVisibility(View.GONE);WindowManager.LayoutParams a=getWindow().getAttributes();a.screenBrightness=WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;getWindow().setAttributes(a);}
+    private void sleepCheck(){
+        long now=SystemClock.elapsedRealtime();
+        if(!beltIdle()){lastActive=now;if(asleep)wake();}
+        else if(!asleep&&now-lastActive>SLEEP_MS)sleep();
+    }
+    @Override public void changed(){if(!visible||ui==null||service==null)return;sleepCheck();ui.refresh();String note=service.treadmillLive()&&service.message.startsWith("Controller not verified")?"Treadmill link active · physical Stop and safety key always work":service.message;if(!note.contentEquals(status.getText()))status.setText(note);if(footerHeight!=ui.footerHeight()){footerHeight=ui.footerHeight();footer.setLayoutParams(new LinearLayout.LayoutParams(-1,footerHeight));}}
     private void open(String action){if(service==null)return;switch(action){
-        case "home":break;
+        case "home":if(asleep)wake();break;
+        case "sleepNow":sleep();break;
         case "pauseHeartbeat":service.pauseHeartbeat(15000);break;
         case "youtube":youtube();break;
         case "sensors":settings();break;
