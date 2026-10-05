@@ -9,7 +9,7 @@ import java.util.*;
 /**
  * Controls over video. Framed: the four opaque edge windows around CardioLab's own framed player
  * (VideoActivity), which leave its centre touchable. Compact: one slim bar at the top centre over a
- * full-screen app such as SmartTube (Back, CardioLab, the console's readings, interval switch, pause/resume);
+ * full-screen app such as SmartTube (Back, CardioLab, the console's readings, interval switch, start/pause/resume, end);
  * a single small overlay also lets this screen compose video in hardware.
  */
 final class OverlayControls {
@@ -19,7 +19,7 @@ final class OverlayControls {
     private final ArrayList<View> windows=new ArrayList<>();
     private int footerHeight;
     private final boolean compact;
-    private Button main,switcher;
+    private Button main,switcher,end;
     private final TextView[] stats=new TextView[7];
     OverlayControls(ConsoleService service,boolean compact){this.service=service;this.compact=compact;manager=service.getSystemService(WindowManager.class);ui=new ConsoleUi(service,service,service::openConsole);}
     void show(){if(compact)showCompact();else showEdges();}
@@ -39,6 +39,7 @@ final class OverlayControls {
         for(int i=0;i<stats.length;i++){LinearLayout cell=ui.col();cell.setGravity(Gravity.CENTER);TextView name=ui.text(names[i],9,i==5?ConsoleUi.RED:ConsoleUi.MUTED);stats[i]=ui.text("—",15,ConsoleUi.INK);cell.addView(name);cell.addView(stats[i]);bar.addView(cell,new LinearLayout.LayoutParams(0,-1,i==6?1.4f:1));}
         switcher=ui.button("",true,()->service.action("switch"));LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(ui.dp(150),ui.dp(32));sp.leftMargin=ui.dp(4);bar.addView(switcher,sp);
         main=ui.button("",true,()->service.action("main"));LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(ui.dp(96),ui.dp(32));mp.leftMargin=ui.dp(4);bar.addView(main,mp);
+        end=ui.button("End",false,()->service.action("end"));end.setTextColor(ConsoleUi.RED);LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(ui.dp(64),ui.dp(32));ep.leftMargin=ui.dp(4);bar.addView(end,ep);
         // Narrow enough to leave SmartTube's search/account buttons (left) and clock (right) visible.
         int width=Math.min(size.x-ui.dp(16),ui.dp(900));
         // Top centre: at the bottom it covered SmartTube's player messages and seek bar.
@@ -55,6 +56,7 @@ final class OverlayControls {
         String sw=String.format(Locale.US,"Switch to %s · %.1f",session.phase==0?"B":"A",session.phase==0?session.speedB:session.speedA);if(!sw.contentEquals(switcher.getText()))switcher.setText(sw);
         String label=t.phase==TreadmillState.Phase.RUNNING?"Pause":t.phase==TreadmillState.Phase.PAUSED?"Resume":t.phase==TreadmillState.Phase.COUNTDOWN?"Starting…":"Start";
         if(!label.contentEquals(main.getText()))main.setText(label);
+        end.setVisibility(t.phase==TreadmillState.Phase.RUNNING||t.phase==TreadmillState.Phase.PAUSED?View.VISIBLE:View.GONE);
     }
     private void add(View view,int width,int height,int x,int y){
         WindowManager.LayoutParams p=new WindowManager.LayoutParams(width,Math.max(1,height),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
