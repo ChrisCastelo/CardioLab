@@ -32,13 +32,15 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
 - Development permissions granted over adb: `READ_LOGS` (detects the stock app still using the
   port), `WRITE_SECURE_SETTINGS` (only to reset the display overscan an earlier build used), `ACCESS_FINE_LOCATION` (BLE heart-rate scan on Android 9) and the
   `SYSTEM_ALERT_WINDOW` app-op. They must be granted again after a reinstall.
-- Video: Firefox runs full screen under a compact CardioLab bar (readings, speed −/+, pause);
+- Video: the video app runs full screen under a compact CardioLab bar (readings, speed −/+, pause);
   "Controls" expands the full edge panels. Shrinking the display (overscan) was tried and dropped:
-  Firefox draws edge to edge and full-screen video overflowed. This build has no freeform windows.
+  the browser drew edge to edge and full-screen video overflowed. This build has no freeform windows.
   Every layer is composited by the GPU here (`dumpsys SurfaceFlinger` shows Client), so fewer and
   smaller overlays keep playback smoother.
-- Firefox 157 (Mozilla's armeabi-v7a APK) is installed for YouTube; the built-in WebView (66)
-  cannot sign in to Google. The Garmin heart rate is read from its Broadcast Heart Rate mode
+- YouTube runs in SmartTube 32.56 (`org.smarttube.stable`, official GitHub armeabi-v7a release,
+  unofficial YouTube client with native hardware playback and TV-code sign-in). It handles YouTube
+  links, so CardioLab's Open YouTube launches it. Firefox 157 was tried and removed: its video was
+  drawn with large white corruption on this Mali GPU. The built-in WebView (66) cannot sign in. The Garmin heart rate is read from its Broadcast Heart Rate mode
   without Android pairing. Step calibration on this screen: 46 counted, 46 detected.
 - On the Mac: adb is `~/Library/Android/sdk/platform-tools/adb`, tests run with `./test.sh`.
 
