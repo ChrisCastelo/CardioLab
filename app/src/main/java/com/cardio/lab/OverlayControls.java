@@ -8,7 +8,7 @@ import java.util.*;
 
 /**
  * Controls over video. Framed: the four opaque edge windows around CardioLab's own framed player
- * (VideoActivity), which leave its centre touchable. Compact: one slim bar at the bottom centre over a
+ * (VideoActivity), which leave its centre touchable. Compact: one slim bar at the top centre over a
  * full-screen app such as SmartTube (live readings, Back, CardioLab, speed down/up, pause/resume);
  * a single small overlay also lets this screen compose video in hardware.
  */
@@ -39,8 +39,8 @@ final class OverlayControls {
         main=ui.button("",true,()->service.action("main"));
         for(Button b:new Button[]{slower,main,faster}){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(b==main?ui.dp(96):ui.dp(48),ui.dp(32));p.leftMargin=ui.dp(4);bar.addView(b,p);}
         int width=Math.min(size.x-ui.dp(16),ui.dp(740));
-        // Bottom centre: SmartTube keeps its search, account and menu buttons along the top.
-        add(bar,width,ui.dp(36),(size.x-width)/2,size.y-ui.dp(38));refreshCompact();
+        // Top centre: at the bottom it covered SmartTube's player messages and seek bar.
+        add(bar,width,ui.dp(36),(size.x-width)/2,ui.dp(2));refreshCompact();
     }
     private void nudge(double delta){double mph=service.treadmill.speedMph();if(mph>0)service.speed(Math.round((mph+delta)*2)/2.0);}
     private void refreshCompact(){
