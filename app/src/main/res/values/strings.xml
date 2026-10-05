@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="navigation_service_description">Gives CardioLab\'s video bar a Back button on this screen, which has no navigation buttons. It only presses Back when you tap that button.</string>
+</resources>

@@ -20,6 +20,10 @@
         <service android:name=".ConsoleService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Continuous mounted accelerometer vibration step detection and BLE heart-rate acquisition while workout controls overlay a video app" />
         </service>
+        <service android:name=".NavigationService" android:exported="false" android:label="CardioLab Back button" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/navigation_service" />
+        </service>
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
         </receiver>

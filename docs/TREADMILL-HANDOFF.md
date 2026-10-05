@@ -32,6 +32,11 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
 - Development permissions granted over adb: `READ_LOGS` (detects the stock app still using the
   port), `WRITE_SECURE_SETTINGS` (only to reset the display overscan an earlier build used), `ACCESS_FINE_LOCATION` (BLE heart-rate scan on Android 9) and the
   `SYSTEM_ALERT_WINDOW` app-op. They must be granted again after a reinstall.
+- The screen has no navigation bar, so the video bar has `‹ Back` (via CardioLab's own
+  accessibility service `NavigationService`, which only performs the system Back action and reads
+  no window content) and `CardioLab` (return to the console). Enabled with
+  `adb shell settings put secure enabled_accessibility_services com.cardio.lab/com.cardio.lab.NavigationService`
+  and `accessibility_enabled 1`; turn off by deleting that setting or in Android Accessibility settings.
 - Video: the video app runs full screen under a compact CardioLab bar (readings, speed −/+, pause);
   "Controls" expands the full edge panels. Shrinking the display (overscan) was tried and dropped:
   the browser drew edge to edge and full-screen video overflowed. This build has no freeform windows.

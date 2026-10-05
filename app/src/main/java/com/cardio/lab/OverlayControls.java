@@ -30,12 +30,15 @@ final class OverlayControls {
     }
     private void showCompact(){
         Point size=new Point();manager.getDefaultDisplay().getRealSize(size);
-        LinearLayout bar=new LinearLayout(service);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setBackground(ui.round(ConsoleUi.PANEL));bar.setPadding(ui.dp(10),ui.dp(2),ui.dp(3),ui.dp(2));
-        readings=ui.text("",14,ConsoleUi.INK);bar.addView(readings,new LinearLayout.LayoutParams(0,-2,1));
+        LinearLayout bar=new LinearLayout(service);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setBackground(ui.round(ConsoleUi.PANEL));bar.setPadding(ui.dp(3),ui.dp(2),ui.dp(3),ui.dp(2));
+        Button back=ui.button("‹ Back",false,()->{if(!NavigationService.back())Toast.makeText(service,"Back needs the CardioLab Back button service (adb)",Toast.LENGTH_LONG).show();});
+        Button home=ui.button("CardioLab",false,()->service.openConsole("home"));back.setContentDescription("Back in the video app");home.setContentDescription("Return to the CardioLab console");
+        for(Button b:new Button[]{back,home}){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(ui.dp(b==back?72:96),ui.dp(32));p.rightMargin=ui.dp(4);bar.addView(b,p);}
+        readings=ui.text("",14,ConsoleUi.INK);readings.setPadding(ui.dp(6),0,0,0);bar.addView(readings,new LinearLayout.LayoutParams(0,-2,1));
         Button slower=ui.button("−",false,()->nudge(-.5)),faster=ui.button("+",false,()->nudge(.5));slower.setContentDescription("Slower by 0.5 mph");faster.setContentDescription("Faster by 0.5 mph");
         main=ui.button("",true,()->service.action("main"));Button expand=ui.button("Controls",false,()->{compact=false;close();showEdges();});
         for(Button b:new Button[]{slower,main,faster,expand}){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(b==main?ui.dp(96):b==expand?ui.dp(92):ui.dp(48),ui.dp(32));p.leftMargin=ui.dp(4);bar.addView(b,p);}
-        int width=Math.min(size.x-ui.dp(16),ui.dp(640));// Short enough to stay clear of Firefox's address bar below the tab strip.
+        int width=Math.min(size.x-ui.dp(16),ui.dp(820));// Short enough to stay clear of Firefox's address bar below the tab strip.
         add(bar,width,ui.dp(36),(size.x-width)/2,ui.dp(2));refreshCompact();
     }
     private void nudge(double delta){double mph=service.treadmill.speedMph();if(mph>0)service.speed(Math.round((mph+delta)*2)/2.0);}
