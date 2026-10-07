@@ -48,9 +48,11 @@ CardioLab now replaces FitOS on the treadmill link. Details and captures are in
 - The treadmill link is held for as long as CardioLab runs. Whenever the console is not in front
   (SmartTube, a maximized PiP video, Settings), the compact stats bar shows over that app. Releasing the
   link when the console left the screen used to stop the belt when a PiP video was maximized.
-- Heart rate: each connection attempt scans 8 s for the standard Heart Rate service and accepts the
-  saved address or the same device name (Garmin advertises from another address during a watch
-  activity with "Broadcast During Activity"), saving the new address.
+- Heart rate: each connection attempt scans for the standard Heart Rate service until the saved
+  address or the same device name appears (Garmin advertises from another address during a watch
+  activity with "Broadcast During Activity"), saving the new address. It never connects blindly to a
+  stale address: cancelling those hanging connects leaked GATT client slots until the console's stack
+  hit its 32-client limit (`MAX client reached: 32` in logcat) and every scan/connect failed.
 - Video has two modes, switched in ⚙ (last item). Framed: CardioLab's own player (`VideoActivity`,
   built-in WebView, no sign-in) sits inside the edge panels with `‹ Back` in the header. SmartTube:
   full screen under the compact bar (Back, CardioLab, speed, incline, time, distance, steps, heart

@@ -37,8 +37,11 @@ final class HeartRateClient {
     }
     /**
      * Garmin watches advertise heart rate from a different address once a watch workout starts ("Broadcast
-     * During Activity"), so each attempt first scans for the standard Heart Rate service and accepts the saved
-     * address or the same device name; the saved address is then updated. Falls back to a direct connect.
+     * During Activity"), so each attempt scans for the standard Heart Rate service and accepts the saved
+     * address or the same device name; the saved address is then updated. Only a device seen advertising is
+     * connected: a blind connect to a stale address hangs, and cancelling it leaks one of the 32 GATT client
+     * slots on the console's Android 9 stack until Bluetooth restarts. The scan runs until the watch appears
+     * and is renewed every 10 minutes, before Android downgrades a long scan without hardware filters.
      */
     private void connect() {
         if(!enabled)return;
@@ -48,20 +51,26 @@ final class HeartRateClient {
         android.bluetooth.le.BluetoothLeScanner scanner=adapter.getBluetoothLeScanner();
         if(scanner==null){connectTo(adapter,address);return;}
         listener.status("Searching for "+(name==null||name.isEmpty()?"heart-rate broadcast":name)+"…");
-        scan=new android.bluetooth.le.ScanCallback(){@Override public void onScanResult(int type,android.bluetooth.le.ScanResult r){main.post(()->{
-            if(scan!=this||!enabled)return;
-            BluetoothDevice d=r.getDevice();String n=r.getScanRecord()!=null&&r.getScanRecord().getDeviceName()!=null?r.getScanRecord().getDeviceName():d.getName();
-            boolean same=d.getAddress().equals(address)||(name!=null&&!name.isEmpty()&&n!=null&&n.trim().equalsIgnoreCase(name.trim()));
-            if(!same)return;
-            stopScan();if(!d.getAddress().equals(address)){address=d.getAddress();listener.moved(address);}
-            connectTo(adapter,address);
-        });}};
+        scan=new android.bluetooth.le.ScanCallback(){
+            @Override public void onScanResult(int type,android.bluetooth.le.ScanResult r){main.post(()->{
+                if(scan!=this||!enabled)return;
+                BluetoothDevice d=r.getDevice();String n=r.getScanRecord()!=null&&r.getScanRecord().getDeviceName()!=null?r.getScanRecord().getDeviceName():d.getName();
+                boolean same=d.getAddress().equals(address)||(name!=null&&!name.isEmpty()&&n!=null&&n.trim().equalsIgnoreCase(name.trim()));
+                if(!same)return;
+                stopScan();main.removeCallbacksAndMessages(null);if(!d.getAddress().equals(address)){address=d.getAddress();listener.moved(address);}
+                connectTo(adapter,address);
+            });}
+            @Override public void onScanFailed(int code){main.post(()->{
+                if(scan!=this)return;
+                scan=null;retry(code==SCAN_FAILED_APPLICATION_REGISTRATION_FAILED?"Bluetooth has no free connections · turn Bluetooth off and on":"Scan failed ("+code+")");
+            });}
+        };
         try{
             scanner.startScan(java.util.Collections.singletonList(new android.bluetooth.le.ScanFilter.Builder().setServiceUuid(new android.os.ParcelUuid(SERVICE)).build()),
                 new android.bluetooth.le.ScanSettings.Builder().setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY).build(),scan);
         }catch(SecurityException|IllegalStateException e){scan=null;connectTo(adapter,address);return;}
         android.bluetooth.le.ScanCallback expected=scan;
-        main.postDelayed(()->{if(scan==expected){stopScan();connectTo(adapter,address);}},8000);
+        main.postDelayed(()->{if(scan==expected){stopScan();connect();}},600_000);
     }
     private void stopScan(){
         android.bluetooth.le.ScanCallback s=scan;scan=null;if(s==null)return;
@@ -73,7 +82,7 @@ final class HeartRateClient {
         try {
             active=adapter.getRemoteDevice(target).connectGatt(context,false,callback,BluetoothDevice.TRANSPORT_LE);
             BluetoothGatt expected=active;
-            main.postDelayed(()->{if(active==expected)retry("Connection timed out");},25000);
+            main.postDelayed(()->{if(active==expected)retry("Connection timed out");},45000);
         } catch(SecurityException e) { enabled=false; close(); listener.status("Nearby Devices permission needed"); }
           catch(IllegalArgumentException e) { enabled=false; close(); listener.status("Select a heart-rate device"); }
     }
