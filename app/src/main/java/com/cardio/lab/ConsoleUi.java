@@ -79,7 +79,7 @@ final class ConsoleUi {
         TreadmillState t=service.treadmill;boolean known=t.incline!=Integer.MIN_VALUE;double meters=t.meters();
         if(title!=null){set(title,(service.session.intervals&&service.session.started?"Intervals":"Treadmill")+" · "+t.label());set(detail,"Live · physical Stop and safety key always work");set(main,t.phase==TreadmillState.Phase.RUNNING?"Pause":t.phase==TreadmillState.Phase.PAUSED?"Resume":t.phase==TreadmillState.Phase.COUNTDOWN?"Starting…":t.phase==TreadmillState.Phase.STOPPED||t.phase==TreadmillState.Phase.UNKNOWN?"Quick start":t.label());boolean idle=t.phase==TreadmillState.Phase.STOPPED||t.phase==TreadmillState.Phase.UNKNOWN;end.setVisibility(t.phase==TreadmillState.Phase.RUNNING||t.phase==TreadmillState.Phase.PAUSED?View.VISIBLE:View.GONE);workout.setVisibility(idle?View.VISIBLE:View.GONE);set(lap,"Lap "+((int)(meters/400)+1)+" · "+(int)(meters%400)+" m");set(lapDetail,(int)(meters/400)+" laps · treadmill distance");mini.meters(meters);}
         intervals(service.session);
-        if(large!=null)large.meters(meters);
+        if(large!=null){large.meters(meters);large.countdown(service.countdownAt,service.goAt);}
         if(speedValue!=null)set(speedValue,String.format(Locale.US,"%.1f",t.speedMph()));if(inclineValue!=null)set(inclineValue,known?String.valueOf(t.incline):"—");
         for(Button b:speedButtons)select(b,t.phase==TreadmillState.Phase.RUNNING&&Math.abs(Integer.parseInt(b.getText().toString())-t.speedMph())<.05);for(Button b:inclineButtons)select(b,known&&Integer.parseInt(b.getText().toString())==t.incline);
         int bpm=service.heartRate()>0?service.heartRate():t.heartRate;

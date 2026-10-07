@@ -13,8 +13,14 @@ final class TrackView extends View {
     private final float[] point=new float[2];
     private static final String[] GUIDES={"START / FINISH","100 m","200 m","300 m"};
     private double meters;
+    private long countdownAt,goAt;
+    private String label;
     TrackView(Context c){super(c);setContentDescription("400 meter track, counterclockwise from the finish line at the end of the home straight, with 100, 200 and 300 meter guides. Tap to expand or collapse.");}
     void meters(double value){if(meters!=value){meters=value;invalidate();}}
+    /** Text in the middle of the oval (the compact bar's lap count); the countdown replaces it while it runs. */
+    void label(String value){if(!java.util.Objects.equals(label,value)){label=value;invalidate();}}
+    /** Controller countdown start and belt start times (elapsedRealtime, 0 for none); the label animates itself. */
+    void countdown(long startedAt,long started){if(countdownAt!=startedAt||goAt!=started){countdownAt=startedAt;goAt=started;invalidate();}}
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);float w=getWidth(),h=getHeight(),stroke=Math.max(2,Math.min(w,h)*.035f),inset=stroke*3;
         // In this schematic, each straight has the same length as a semicircle.
@@ -52,5 +58,15 @@ final class TrackView extends View {
         }
         paint.setColor(ConsoleUi.LIME);
         measure.getPosTan(distance,point,null);paint.setStyle(Paint.Style.FILL);canvas.drawCircle(point[0],point[1],stroke*.8f,paint);
+        long now=android.os.SystemClock.elapsedRealtime();
+        String count=countdownAt>0?String.valueOf(Math.max(1,3-(now-countdownAt)/1000)):goAt>0&&now-goAt<1200?"GO":null;
+        if(count!=null){
+            paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(r*1.1f);paint.setFakeBoldText(true);paint.setColor(count.equals("GO")?ConsoleUi.LIME:ConsoleUi.INK);
+            canvas.drawText(count,w/2,h/2-(paint.ascent()+paint.descent())/2,paint);paint.setFakeBoldText(false);
+            postInvalidateDelayed(100);
+        }else if(label!=null){
+            paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(r*.95f);paint.setFakeBoldText(true);paint.setColor(ConsoleUi.INK);
+            canvas.drawText(label,w/2,h/2-(paint.ascent()+paint.descent())/2,paint);paint.setFakeBoldText(false);
+        }
     }
 }

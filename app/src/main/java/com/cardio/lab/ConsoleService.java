@@ -125,12 +125,18 @@ public final class ConsoleService extends Service implements SensorEventListener
      * maximized, because the controller ends the workout when heartbeats stop.
      */
     private void claimLink(){link.want(canReadLogs());}
+    /** elapsedRealtime when the controller countdown began (0 when none), and when it gave way to running. */
+    public long countdownAt,goAt;
     private void treadmillBytes(byte[] data,int count){
         TreadmillState.Phase before=treadmill.phase;
         link.echo(treadmill.bytes(data,count,SystemClock.elapsedRealtime()));
         boolean started=treadmill.phase==TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.COUNTDOWN&&before!=TreadmillState.Phase.PAUSED;
         boolean ended=treadmill.phase==TreadmillState.Phase.STOPPED&&(before==TreadmillState.Phase.RUNNING||before==TreadmillState.Phase.PAUSED||before==TreadmillState.Phase.COUNTDOWN);
         if(started){detector.reset();session.begin();lastElapsed=0;lastMeters=0;}
+        // The controller beeps three times through its ~3 s countdown (Start key, Quick start or Resume); the track shows 3, 2, 1, GO.
+        long at=SystemClock.elapsedRealtime();
+        if(treadmill.phase==TreadmillState.Phase.COUNTDOWN){if(before!=TreadmillState.Phase.COUNTDOWN){countdownAt=at;goAt=0;}}
+        else{if(countdownAt>0&&treadmill.phase==TreadmillState.Phase.RUNNING)goAt=at;countdownAt=0;}
         // Time and distance return to zero when the controller ends a workout; steps and intervals follow.
         if(ended){detector.reset();session.end();session.intervals=false;queuedSpeed=0;}
         session.running=treadmill.phase==TreadmillState.Phase.RUNNING;
