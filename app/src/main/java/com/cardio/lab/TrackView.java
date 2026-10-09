@@ -14,15 +14,15 @@ final class TrackView extends View {
     private static final String[] GUIDES={"START / FINISH","100 m","200 m","300 m"};
     private double meters;
     private long countdownAt,goAt;
-    private String label;
+    private String label,detail;
     TrackView(Context c){super(c);setContentDescription("400 meter track, counterclockwise from the finish line at the end of the home straight, with 100, 200 and 300 meter guides. Tap to expand or collapse.");}
     void meters(double value){if(meters!=value){meters=value;invalidate();}}
     /** Text in the middle of the oval (the compact bar's lap count); the countdown replaces it while it runs. */
-    void label(String value){if(!java.util.Objects.equals(label,value)){label=value;invalidate();}}
+    void label(String value,String below){if(!java.util.Objects.equals(label,value)||!java.util.Objects.equals(detail,below)){label=value;detail=below;invalidate();}}
     /** Controller countdown start and belt start times (elapsedRealtime, 0 for none); the label animates itself. */
     void countdown(long startedAt,long started){if(countdownAt!=startedAt||goAt!=started){countdownAt=startedAt;goAt=started;invalidate();}}
     @Override protected void onDraw(Canvas canvas){
-        super.onDraw(canvas);float w=getWidth(),h=getHeight(),stroke=Math.max(2,Math.min(w,h)*.035f),inset=stroke*3;
+        super.onDraw(canvas);float w=getWidth(),h=getHeight(),stroke=Math.max(2,Math.min(w,h)*.035f),inset=stroke*(w<300*getResources().getDisplayMetrics().density?2:3);
         // In this schematic, each straight has the same length as a semicircle.
         // Thus every 100 m guide lands at a tangent, with matching left/right Xs.
         float r=Math.max(1,Math.min((w-2*inset)/(float)(Math.PI+2),(h-2*inset)/2));
@@ -65,8 +65,14 @@ final class TrackView extends View {
             canvas.drawText(count,w/2,h/2-(paint.ascent()+paint.descent())/2,paint);paint.setFakeBoldText(false);
             postInvalidateDelayed(100);
         }else if(label!=null){
-            paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(r*.95f);paint.setFakeBoldText(true);paint.setColor(ConsoleUi.INK);
-            canvas.drawText(label,w/2,h/2-(paint.ascent()+paint.descent())/2,paint);paint.setFakeBoldText(false);
+            // Lap count with the smaller lap pace beneath it.
+            // Readable minimums for the compact bar's 36 dp track.
+            float density=getResources().getDisplayMetrics().density,lapText=Math.max(r*.72f,12*density),paceText=Math.max(r*.5f,9*density);
+            paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(lapText);paint.setFakeBoldText(true);paint.setColor(ConsoleUi.INK);
+            float lapSize=-paint.ascent(),gap=r*.08f;paint.setTextSize(paceText);float paceSize=detail==null?0:-paint.ascent();
+            float top=h/2-(lapSize+(detail==null?0:gap+paceSize))/2;
+            paint.setTextSize(lapText);canvas.drawText(label,w/2,top+lapSize,paint);paint.setFakeBoldText(false);
+            if(detail!=null){paint.setTextSize(paceText);paint.setColor(ConsoleUi.MUTED);canvas.drawText(detail,w/2,top+lapSize+gap+paceSize,paint);}
         }
     }
 }

@@ -59,12 +59,14 @@ final class ConsoleUi {
         for(int i=0;i<6;i++){LinearLayout item=col();item.setPadding(dp(12),0,dp(4),0);TextView name=text(names[i],10,i==5?RED:MUTED);values[i]=text("—",28,INK);if(i==2){item.setPadding(0,0,0,0);item.setGravity(Gravity.CENTER);name.setGravity(Gravity.CENTER);values[i].setGravity(Gravity.CENTER);}item.addView(name);item.addView(values[i]);metrics.addView(item,new LinearLayout.LayoutParams(0,-1,weights[i]));}
         root.addView(metrics,new LinearLayout.LayoutParams(-1,dp(68)));return root;
     }
+    /** Time one 400 m lap takes at this belt speed, e.g. "4:58 /lap"; a dash while the belt is still. */
+    static String lapPace(double mph){if(mph<=0)return "— /lap";long seconds=Math.round(400/(mph*0.44704));return String.format(Locale.US,"%d:%02d /lap",seconds/60,seconds%60);}
     private static void set(TextView view,String value){if(!value.contentEquals(view.getText()))view.setText(value);}
     void refresh(){
         speakerLine();
         if(service.treadmillLive()){live();return;}
         ConsoleSession s=service.session;
-        if(title!=null){set(title,(s.preview?"Preview · ":"")+(s.started?(s.intervals?"Intervals":"Quick start")+(s.running?" · Running":" · Paused"):"Ready when you are"));set(detail,s.preview?"Simulated belt · real sensors":service.treadmillStatus());set(main,s.running?"Pause":s.started?"Resume":"Quick start");end.setVisibility(s.started?View.VISIBLE:View.GONE);workout.setVisibility(s.started?View.GONE:View.VISIBLE);set(lap,s.preview?"Lap "+(s.laps()+1)+" · "+(int)(s.meters%400)+" m":"400 m track");set(lapDetail,s.preview?s.laps()+" laps · preview":"Awaiting treadmill data");mini.meters(s.meters);}
+        if(title!=null){set(title,(s.preview?"Preview · ":"")+(s.started?(s.intervals?"Intervals":"Quick start")+(s.running?" · Running":" · Paused"):"Ready when you are"));set(detail,s.preview?"Simulated belt · real sensors":service.treadmillStatus());set(main,s.running?"Pause":s.started?"Resume":"Quick start");end.setVisibility(s.started?View.VISIBLE:View.GONE);workout.setVisibility(s.started?View.GONE:View.VISIBLE);set(lap,s.preview?"Lap "+s.laps()+" · "+(int)(s.meters%400)+" m":"400 m track");set(lapDetail,s.preview?lapPace(s.running?s.speed:0)+" · preview":"Awaiting treadmill data");mini.meters(s.meters);}
         if(large!=null)large.meters(s.meters);
         if(speedValue!=null)set(speedValue,s.preview?String.format(Locale.US,"%.1f",s.speed):"—");if(inclineValue!=null)set(inclineValue,s.preview?String.valueOf(s.incline):"—");
         for(Button b:speedButtons)select(b,s.preview&&Integer.parseInt(b.getText().toString())==s.speed);for(Button b:inclineButtons)select(b,s.preview&&Integer.parseInt(b.getText().toString())==s.incline);
@@ -77,7 +79,7 @@ final class ConsoleUi {
     /** Real treadmill readings, as reported by the controller. */
     private void live(){
         TreadmillState t=service.treadmill;boolean known=t.incline!=Integer.MIN_VALUE;double meters=t.meters();
-        if(title!=null){set(title,(service.session.intervals&&service.session.started?"Intervals":"Treadmill")+" · "+t.label());set(detail,"Live · physical Stop and safety key always work");set(main,t.phase==TreadmillState.Phase.RUNNING?"Pause":t.phase==TreadmillState.Phase.PAUSED?"Resume":t.phase==TreadmillState.Phase.COUNTDOWN?"Starting…":t.phase==TreadmillState.Phase.STOPPED||t.phase==TreadmillState.Phase.UNKNOWN?"Quick start":t.label());boolean idle=t.phase==TreadmillState.Phase.STOPPED||t.phase==TreadmillState.Phase.UNKNOWN;end.setVisibility(t.phase==TreadmillState.Phase.RUNNING||t.phase==TreadmillState.Phase.PAUSED?View.VISIBLE:View.GONE);workout.setVisibility(idle?View.VISIBLE:View.GONE);set(lap,"Lap "+((int)(meters/400)+1)+" · "+(int)(meters%400)+" m");set(lapDetail,(int)(meters/400)+" laps · treadmill distance");mini.meters(meters);}
+        if(title!=null){set(title,(service.session.intervals&&service.session.started?"Intervals":"Treadmill")+" · "+t.label());set(detail,"Live · physical Stop and safety key always work");set(main,t.phase==TreadmillState.Phase.RUNNING?"Pause":t.phase==TreadmillState.Phase.PAUSED?"Resume":t.phase==TreadmillState.Phase.COUNTDOWN?"Starting…":t.phase==TreadmillState.Phase.STOPPED||t.phase==TreadmillState.Phase.UNKNOWN?"Quick start":t.label());boolean idle=t.phase==TreadmillState.Phase.STOPPED||t.phase==TreadmillState.Phase.UNKNOWN;end.setVisibility(t.phase==TreadmillState.Phase.RUNNING||t.phase==TreadmillState.Phase.PAUSED?View.VISIBLE:View.GONE);workout.setVisibility(idle?View.VISIBLE:View.GONE);set(lap,"Lap "+(int)(meters/400)+" · "+(int)(meters%400)+" m");set(lapDetail,lapPace(t.speedMph()));mini.meters(meters);}
         intervals(service.session);
         if(large!=null){large.meters(meters);large.countdown(service.countdownAt,service.goAt);}
         if(speedValue!=null)set(speedValue,String.format(Locale.US,"%.1f",t.speedMph()));if(inclineValue!=null)set(inclineValue,known?String.valueOf(t.incline):"—");

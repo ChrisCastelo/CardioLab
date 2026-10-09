@@ -72,7 +72,7 @@ final class OverlayControls {
         String label=t.phase==TreadmillState.Phase.RUNNING?"Pause":t.phase==TreadmillState.Phase.PAUSED?"Resume":t.phase==TreadmillState.Phase.COUNTDOWN?"Starting…":"Start";
         if(!label.contentEquals(main.getText()))main.setText(label);
         end.setVisibility(t.phase==TreadmillState.Phase.RUNNING||t.phase==TreadmillState.Phase.PAUSED?View.VISIBLE:View.GONE);
-        double meters=live?t.meters():0;track.meters(meters);track.label("Lap "+((int)(meters/400)+1));track.countdown(service.countdownAt,service.goAt);
+        double meters=live?t.meters():0;track.meters(meters);track.label("Lap "+(int)(meters/400),ConsoleUi.lapPace(live?t.speedMph():0));track.countdown(service.countdownAt,service.goAt);
     }
     private void add(View view,int width,int height,int x,int y){
         WindowManager.LayoutParams p=new WindowManager.LayoutParams(width,Math.max(1,height),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
