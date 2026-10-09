@@ -5,6 +5,7 @@ import java.util.*;
 /** Replays both recordings through the production detector. Never changes a live detector. */
 public final class StepCalibration {
     public static final long NOISE_MS=6000, WALK_MS=30000;
+    static final double NOISE_MARGIN=1.3;
     public static final class Sample {
         public final long ns;
         public final double x,y,z;
@@ -46,28 +47,35 @@ public final class StepCalibration {
         int before=replay(walking,oldThreshold);
         ArrayList<Double> baseline=new ArrayList<>();StepDetector filter=new StepDetector();
         for(Sample s:noise){filter.add(s.ns,s.x,s.y,s.z,false);if(s.count)baseline.add(Math.abs(filter.signal()));}
-        Collections.sort(baseline);double floor=Math.max(.025,1.7*baseline.get((int)((baseline.size()-1)*.99)));
+        // The search starts just above empty-belt noise; every candidate must still count zero steps on that recording.
+        Collections.sort(baseline);double floor=Math.max(.025,NOISE_MARGIN*baseline.get((int)((baseline.size()-1)*.99)));
         filter=new StepDetector();double peak=0;
         for(Sample s:walking){filter.add(s.ns,s.x,s.y,s.z,false);if(s.count)peak=Math.max(peak,Math.abs(filter.signal()));}
         if(peak<=floor)return failure("Walking vibrations do not clearly exceed empty-belt noise. Check phone placement and repeat both stages.",reference,before);
         final int size=321;double[] thresholds=new double[size];int[] counts=new int[size],noiseCounts=new int[size];
-        int best=Integer.MAX_VALUE;
+        int best=Integer.MAX_VALUE,tolerance=(int)Math.max(1,Math.floor(reference*.05));
         for(int i=0;i<size;i++){
             if(Thread.currentThread().isInterrupted())return failure("Calibration cancelled.",reference,before);
             thresholds[i]=floor*Math.pow(peak*1.05/floor,i/(double)(size-1));
             noiseCounts[i]=replay(noise,thresholds[i]);counts[i]=replay(walking,thresholds[i]);
             if(noiseCounts[i]==0)best=Math.min(best,Math.abs(counts[i]-reference));
         }
-        if(best>Math.max(1,Math.floor(reference*.05)))return failure("No threshold could match your count within 5% while rejecting empty-belt steps. Keep the current setting; repeat at a steady pace or change phone placement.",reference,before);
-        // Select the center of the widest equally good band, avoiding a fragile edge value.
+        if(best>tolerance){
+            int lowest=-1;for(int i=0;i<size&&lowest<0;i++)if(noiseCounts[i]==0)lowest=i;
+            String reach=lowest<0?"":String.format(Locale.US," The most sensitive setting that ignores the empty belt (%.3f) counts %d of your %d.",thresholds[lowest],counts[lowest],reference);
+            return failure("No threshold could match your count within 5% while rejecting empty-belt steps."+reach+" Keep the current setting; repeat at a steady pace or change phone placement.",reference,before);
+        }
+        // Take the widest run of thresholds within 5% of the count (exact-count runs are often only a few candidates
+        // wide), then the candidate closest to the count, nearest that run's centre, avoiding a fragile edge value.
         int start=-1,lo=-1,hi=-1;double width=-1;
         for(int i=0;i<=size;i++){
-            boolean matches=i<size&&noiseCounts[i]==0&&Math.abs(counts[i]-reference)==best;
+            boolean matches=i<size&&noiseCounts[i]==0&&Math.abs(counts[i]-reference)<=tolerance;
             if(matches&&start<0)start=i;
             if(!matches&&start>=0){double w=Math.log(thresholds[i-1]/thresholds[start]);if(w>width){width=w;lo=start;hi=i-1;}start=-1;}
         }
         if(hi-lo<2)return failure("The matching threshold range is too narrow to trust. Repeat at a steady pace or change phone placement.",reference,before);
-        int chosen=(lo+hi)/2;
+        int chosen=-1;
+        for(int i=lo;i<=hi;i++){int miss=Math.abs(counts[i]-reference),current=chosen<0?Integer.MAX_VALUE:Math.abs(counts[chosen]-reference);if(miss<current||miss==current&&Math.abs(i-(lo+hi)/2.0)<Math.abs(chosen-(lo+hi)/2.0))chosen=i;}
         return new Result(true,"This fits the calibration walk only. Check a separate 100-step walk before relying on it.",thresholds[chosen],thresholds[lo],thresholds[hi],floor,reference,before,counts[chosen],noiseCounts[chosen]);
     }
 }
