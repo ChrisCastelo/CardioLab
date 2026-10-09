@@ -12,6 +12,8 @@ final class HeartRateClient {
     interface Listener { void status(String text); void measurement(int bpm); default void moved(String address){} }
     private static UUID uuid(String s) { return UUID.fromString("0000"+s+"-0000-1000-8000-00805f9b34fb"); }
     private static final UUID SERVICE=uuid("180d"), MEASUREMENT=uuid("2a37"), CCC=uuid("2902");
+    /** Bluetooth SIG company identifier of Garmin International. */
+    private static final int GARMIN=0x0087;
     private final Context context;
     private final Listener listener;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -22,8 +24,19 @@ final class HeartRateClient {
     private long lastPacket;
     private int attempt;
     HeartRateClient(Context context, Listener listener) { this.context=context; this.listener=listener; }
-    void start(String target,String targetName) { stop(); address=target; name=targetName; enabled=true; attempt=0; connect(); }
-    void stop() { enabled=false; main.removeCallbacksAndMessages(null); stopScan(); close(); }
+    void start(String target,String targetName) {
+        stop(); address=target; name=targetName; enabled=true; attempt=0;
+        context.registerReceiver(power,new android.content.IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)); listening=true; connect();
+    }
+    void stop() { enabled=false; if(listening){listening=false;try{context.unregisterReceiver(power);}catch(IllegalArgumentException ignored){}} main.removeCallbacksAndMessages(null); stopScan(); close(); }
+    /** Turning Bluetooth off ends a scan without any callback; start again as soon as it is back on. */
+    private boolean listening;
+    private final android.content.BroadcastReceiver power=new android.content.BroadcastReceiver(){@Override public void onReceive(Context c,android.content.Intent i){
+        int state=i.getIntExtra(BluetoothAdapter.EXTRA_STATE,BluetoothAdapter.ERROR);
+        if(!enabled||(state!=BluetoothAdapter.STATE_ON&&state!=BluetoothAdapter.STATE_TURNING_OFF))return;
+        main.removeCallbacksAndMessages(null);scan=null;close();
+        if(state==BluetoothAdapter.STATE_ON){attempt=0;connect();}else listener.status("Bluetooth off");
+    }};
     private void close() {
         BluetoothGatt old=active; active=null;
         if(old!=null) { try { old.disconnect(); old.close(); } catch(SecurityException ignored) {} }
@@ -37,8 +50,10 @@ final class HeartRateClient {
     }
     /**
      * Garmin watches advertise heart rate from a different address once a watch workout starts ("Broadcast
-     * During Activity"), so each attempt scans for the standard Heart Rate service and accepts the saved
-     * address or the same device name; the saved address is then updated. Only a device seen advertising is
+     * During Activity"), so each attempt scans every advertiser (one that leaves the Heart Rate service out of its
+     * advertisement is still found by address or name). It accepts the saved address or the same device name,
+     * a lone Garmin advertiser listing the Heart Rate service, or after 15 s the only one listing it; the saved
+     * address is then updated and the service is confirmed after connecting. Only a device seen advertising is
      * connected: a blind connect to a stale address hangs, and cancelling it leaks one of the 32 GATT client
      * slots on the console's Android 9 stack until Bluetooth restarts. The scan runs until the watch appears
      * and is renewed every 10 minutes, before Android downgrades a long scan without hardware filters.
@@ -51,14 +66,18 @@ final class HeartRateClient {
         android.bluetooth.le.BluetoothLeScanner scanner=adapter.getBluetoothLeScanner();
         if(scanner==null){connectTo(adapter,address);return;}
         listener.status("Searching for "+(name==null||name.isEmpty()?"heart-rate broadcast":name)+"…");
+        java.util.HashSet<String> seen=new java.util.HashSet<>(),heartRate=new java.util.HashSet<>();
         scan=new android.bluetooth.le.ScanCallback(){
             @Override public void onScanResult(int type,android.bluetooth.le.ScanResult r){main.post(()->{
                 if(scan!=this||!enabled)return;
-                BluetoothDevice d=r.getDevice();String n=r.getScanRecord()!=null&&r.getScanRecord().getDeviceName()!=null?r.getScanRecord().getDeviceName():d.getName();
+                BluetoothDevice d=r.getDevice();android.bluetooth.le.ScanRecord record=r.getScanRecord();String n=record!=null&&record.getDeviceName()!=null?record.getDeviceName():d.getName();
+                boolean garmin=record!=null&&record.getManufacturerSpecificData(GARMIN)!=null;
+                boolean hr=record!=null&&record.getServiceUuids()!=null&&record.getServiceUuids().contains(new android.os.ParcelUuid(SERVICE));
                 boolean same=d.getAddress().equals(address)||(name!=null&&!name.isEmpty()&&n!=null&&n.trim().equalsIgnoreCase(name.trim()));
-                if(!same)return;
-                stopScan();main.removeCallbacksAndMessages(null);if(!d.getAddress().equals(address)){address=d.getAddress();listener.moved(address);}
-                connectTo(adapter,address);
+                if(hr)heartRate.add(d.getAddress());
+                if(seen.add(d.getAddress())&&(hr||garmin||same))android.util.Log.i("CardioHR","Advertiser name="+n+" garmin="+garmin+" heartRate="+hr+" matches="+same);
+                if(!same&&hr&&garmin&&heartRate.size()==1)same=true;
+                if(same)use(adapter,d);
             });}
             @Override public void onScanFailed(int code){main.post(()->{
                 if(scan!=this)return;
@@ -66,11 +85,16 @@ final class HeartRateClient {
             });}
         };
         try{
-            scanner.startScan(java.util.Collections.singletonList(new android.bluetooth.le.ScanFilter.Builder().setServiceUuid(new android.os.ParcelUuid(SERVICE)).build()),
-                new android.bluetooth.le.ScanSettings.Builder().setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY).build(),scan);
+            scanner.startScan(null,new android.bluetooth.le.ScanSettings.Builder().setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY).build(),scan);
         }catch(SecurityException|IllegalStateException e){scan=null;connectTo(adapter,address);return;}
         android.bluetooth.le.ScanCallback expected=scan;
+        // A lone heart-rate broadcaster is taken as the watch: its activity broadcast may carry no name and a new address.
+        main.postDelayed(()->{if(scan==expected&&heartRate.size()==1){android.util.Log.i("CardioHR","Using the only HR broadcaster");use(adapter,adapter.getRemoteDevice(heartRate.iterator().next()));}},15000);
         main.postDelayed(()->{if(scan==expected){stopScan();connect();}},600_000);
+    }
+    private void use(BluetoothAdapter adapter,BluetoothDevice d){
+        stopScan();main.removeCallbacksAndMessages(null);if(!d.getAddress().equals(address)){address=d.getAddress();listener.moved(address);}
+        connectTo(adapter,address);
     }
     private void stopScan(){
         android.bluetooth.le.ScanCallback s=scan;scan=null;if(s==null)return;
@@ -101,7 +125,8 @@ final class HeartRateClient {
             BluetoothGattCharacteristic heart=service==null?null:service.getCharacteristic(MEASUREMENT);
             BluetoothGattDescriptor ccc=heart==null?null:heart.getDescriptor(CCC);
             if(heart==null||ccc==null||(heart.getProperties()&BluetoothGattCharacteristic.PROPERTY_NOTIFY)==0) {
-                stop(); listener.status("No standard HR feed · enable broadcast and reconnect"); return;
+                // The watch is in range but not broadcasting heart rate yet; look again in a minute.
+                main.removeCallbacksAndMessages(null); close(); listener.status("No heart-rate broadcast · turn on Broadcast Heart Rate"); main.postDelayed(HeartRateClient.this::connect,60000); return;
             }
             if(!g.setCharacteristicNotification(heart,true)){retry("Subscription failed");return;}
             ccc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
